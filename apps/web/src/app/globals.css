@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import "@feeflow/ui/styles.css";
+
+@source "../../../../packages/ui/src";
+
+@layer base {
+  /* FAQ disclosure rows */
+  summary {
+    cursor: pointer;
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+}
+
+@utility container-page {
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 16px;
+  @media (width >= 40rem) {
+    padding-inline: 24px;
+  }
+}
+
+@utility section-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  @media (width >= 48rem) {
+    font-size: 36px;
+  }
+}
