@@ -1,0 +1,83 @@
+/*
+ * FeeFlow design tokens (Tailwind v4 theme). Light theme only.
+ * Neon #CCFF00 is a fill colour: never use it as text or an icon on a light surface
+ * (about 1.1 : 1 on the page background). Black on neon is about 18 : 1.
+ */
+@theme {
+  --color-bg: #f7f6f2;
+  --color-surface: #ffffff;
+  --color-ink: #1c1c1c;
+  --color-body: #2e2e2e;
+  --color-muted: #4a4a4a;
+  --color-line: #e4e2dc;
+  --color-line-strong: #cfcdc6;
+  --color-subtle: #f0efea;
+  --color-subtle-2: #f4f3f0;
+  --color-disabled: #edece8;
+  --color-track: #efede7;
+  --color-highlight: #fcfdf2;
+  --color-accent: #ccff00;
+  --color-accent-hover: #b8e600;
+  --color-warn-bg: #fbf1dc;
+  --color-warn-line: #d9b66a;
+  --color-warn-ink: #6b4a0e;
+  --color-error: #8a2b1e;
+  --color-error-bg: #f9e7e3;
+
+  --font-sans: var(--font-geist-sans), "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+
+  --radius-card: 14px;
+  --radius-tile: 12px;
+  --radius-btn: 8px;
+}
+
+@layer base {
+  html {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    margin: 0;
+    background: var(--color-bg);
+  }
+  a {
+    color: var(--color-ink);
+  }
+  a:hover {
+    color: #000;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  padding: 24px;
+}
+
+@utility sr-only-focusable {
+  position: absolute;
+  left: -9999px;
+  &:focus {
+    left: 16px;
+    top: 16px;
+    z-index: 100;
+  }
+}
