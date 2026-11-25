@@ -1,0 +1,46 @@
+import { describe, expect, it } from "vitest";
+import { splitGross } from "./constants.js";
+import { ConfigError, parsePublicEnv } from "./env.js";
+
+describe("parsePublicEnv", () => {
+  it("defaults to mainnet and the indexer data source", () => {
+    const cfg = parsePublicEnv({});
+    expect(cfg.env.NEXT_PUBLIC_CHAIN_ID).toBe(4663);
+    expect(cfg.env.NEXT_PUBLIC_DATA_SOURCE).toBe("indexer");
+    expect(cfg.isLive).toBe(false);
+    expect(cfg.auditStatus).toBe("[AUDIT_STATUS]");
+  });
+
+  it("treats blank values as unset", () => {
+    const cfg = parsePublicEnv({ NEXT_PUBLIC_CONTRACT_ADDRESS: "  ", NEXT_PUBLIC_INDEXER_URL: "" });
+    expect(cfg.env.NEXT_PUBLIC_CONTRACT_ADDRESS).toBeUndefined();
+    expect(cfg.isLive).toBe(false);
+  });
+
+  it("is live only when contract and indexer are both set", () => {
+    const cfg = parsePublicEnv({
+      NEXT_PUBLIC_CONTRACT_ADDRESS: "0x0000000000000000000000000000000000000001",
+      NEXT_PUBLIC_INDEXER_URL: "https://api.example.org",
+    });
+    expect(cfg.isLive).toBe(true);
+  });
+
+  it("rejects the mock data source in production", () => {
+    expect(() =>
+      parsePublicEnv({ NODE_ENV: "production", NEXT_PUBLIC_DATA_SOURCE: "mock" }),
+    ).toThrow(ConfigError);
+  });
+
+  it("rejects unsupported chains and bad addresses", () => {
+    expect(() => parsePublicEnv({ NEXT_PUBLIC_CHAIN_ID: "1" })).toThrow(ConfigError);
+    expect(() => parsePublicEnv({ NEXT_PUBLIC_CONTRACT_ADDRESS: "0x123" })).toThrow(ConfigError);
+  });
+});
+
+describe("splitGross", () => {
+  it("takes exactly 1% rounded down, like the contract", () => {
+    expect(splitGross(10_000n)).toEqual({ fee: 100n, net: 9_900n });
+    expect(splitGross(99n)).toEqual({ fee: 0n, net: 99n });
+    expect(splitGross(52_630_000n)).toEqual({ fee: 526_300n, net: 52_103_700n });
+  });
+});
