@@ -1,0 +1,34 @@
+name: Fork (Pons mainnet)
+
+# Stage 0 fork suite against live Pons v2 on Robinhood Chain. Manual only: it depends on live
+# state (the test tokens graduate eventually) and on a public RPC without archive state.
+on:
+  workflow_dispatch:
+    inputs:
+      block:
+        description: "Fork block (needs an archive RPC in the FORK_RPC_URL secret); empty = latest"
+        required: false
+
+jobs:
+  fork:
+    name: forge test (fork)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - name: forge test (fork)
+        working-directory: contracts
+        env:
+          FORK_RPC_URL: ${{ secrets.FORK_RPC_URL || 'https://rpc.mainnet.chain.robinhood.com' }}
+          FORK_BLOCK: ${{ inputs.block }}
+        run: forge test --match-path "test/fork/*" -vv

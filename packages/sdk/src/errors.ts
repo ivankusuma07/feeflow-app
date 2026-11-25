@@ -1,17 +1,16 @@
 import { feeFlowAbi, feeSinkAbi } from "@feeflow/abi";
 import { decodeErrorResult, type Abi, type Hex } from "viem";
 
-/** Pons custom errors with selectors from the Pons docs (errors page). */
+/**
+ * Pons custom errors observed on a mainnet fork (ADR-001):
+ * NotCreatorFeeRecipient 0xb9f93944 (factory), NotFeeSweepOperator 0x8d42130c (curve),
+ * BelowFloor 0x4e7e2916 (sweep operator), InternalSwapRequiresOperator 0x31cdb504 (docs).
+ */
 export const ponsErrorsAbi = [
   { type: "error", name: "NotCreatorFeeRecipient", inputs: [] },
+  { type: "error", name: "NotFeeSweepOperator", inputs: [] },
+  { type: "error", name: "BelowFloor", inputs: [] },
   { type: "error", name: "InternalSwapRequiresOperator", inputs: [] },
-  { type: "error", name: "MinimumOutputRequired", inputs: [] },
-  {
-    type: "error",
-    name: "TimelockNotElapsed",
-    inputs: [{ name: "eta", type: "uint256" }],
-  },
-  { type: "error", name: "TimelockExpired", inputs: [{ name: "at", type: "uint256" }] },
 ] as const satisfies Abi;
 
 export type DecodedErrorKind =
@@ -124,6 +123,16 @@ const MESSAGES: Record<string, { kind: DecodedErrorKind; message: string; retrya
   NotCreatorFeeRecipient: {
     kind: "contract",
     message: "Only the token's current creator fee recipient can change it on Pons.",
+    retryable: false,
+  },
+  BelowFloor: {
+    kind: "contract",
+    message: "Not enough fees have built up on Pons to sweep yet. Try again later.",
+    retryable: false,
+  },
+  NotFeeSweepOperator: {
+    kind: "contract",
+    message: "Sweeps on this token run through the Pons sweep operator.",
     retryable: false,
   },
   InternalSwapRequiresOperator: {
