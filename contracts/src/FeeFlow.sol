@@ -229,8 +229,6 @@ contract FeeFlow is EIP712, ReentrancyGuard {
         );
 
         sink = Clones.cloneDeterministic(SINK_IMPLEMENTATION, _salt(p.token));
-        FeeSink(payable(sink)).initialize(address(this), p.token, lt.pairToken, ESCROW, address(FACTORY));
-
         _tokens[p.token] = TokenInfo({
             sink: sink,
             xUserId: p.xUserId,
@@ -240,6 +238,7 @@ contract FeeFlow is EIP712, ReentrancyGuard {
             asset: lt.pairToken
         });
         tokenOfSink[sink] = p.token;
+        FeeSink(payable(sink)).initialize(address(this), p.token, lt.pairToken, ESCROW, address(FACTORY));
 
         emit TokenRegistered(p.token, p.xUserId, p.creator, sink, lt.pairToken);
     }
@@ -271,8 +270,11 @@ contract FeeFlow is EIP712, ReentrancyGuard {
         address asset = t.asset;
 
         uint256 before = _balanceOf(asset);
+        // The sink's return value is not trusted; FeeFlow measures its own balance delta.
+        // slither-disable-next-line unused-return
         FeeSink(payable(t.sink)).pull();
         uint256 gross = _balanceOf(asset) - before;
+        // slither-disable-next-line incorrect-equality
         if (gross == 0) return 0;
 
         uint256 fee = (gross * FEE_BPS) / BPS_DENOMINATOR;
@@ -283,12 +285,13 @@ contract FeeFlow is EIP712, ReentrancyGuard {
         tot.feesTaken += fee;
         accruedFees[asset] += fee;
 
-        uint256 index;
+        uint256 index = 0;
         if (net > 0) {
             tot.credited += net;
             credited[token] += net;
             uint256 tail = batchTail[token];
             // Same-timestamp collections share one batch, keeping the queue short.
+            // slither-disable-next-line incorrect-equality
             if (tail > batchHead[token] && _batches[token][tail - 1].creditedAt == block.timestamp) {
                 index = tail - 1;
                 _batches[token][index].amount += SafeCast.toUint128(net);
@@ -345,7 +348,7 @@ contract FeeFlow is EIP712, ReentrancyGuard {
         uint256 n = tokenList.length;
         assets = new address[](n);
         amounts = new uint256[](n);
-        bool any;
+        bool any = false;
         for (uint256 i; i < n; ++i) {
             address token = tokenList[i];
             TokenInfo storage t = _tokens[token];
@@ -544,6 +547,7 @@ contract FeeFlow is EIP712, ReentrancyGuard {
     {
         if (block.timestamp > expiry) revert AttestationExpired();
         if (nonceUsed[nonce]) revert NonceUsed();
+        // slither-disable-next-line unused-return
         (address signer, ECDSA.RecoverError err,) = ECDSA.tryRecover(_hashTypedDataV4(structHash), signature);
         if (err != ECDSA.RecoverError.NoError || signer != attester) revert InvalidAttestation();
         nonceUsed[nonce] = true;
@@ -559,6 +563,9 @@ contract FeeFlow is EIP712, ReentrancyGuard {
 
     function _pay(address asset, address to, uint256 amount) internal {
         if (asset == NATIVE) {
+            // `to` is attester-bound (claim), the stored creator (release) or the immutable fee
+            // recipient (withdraw); never caller-chosen without a signature.
+            // slither-disable-next-line arbitrary-send-eth
             (bool ok,) = to.call{value: amount}("");
             if (!ok) revert EthTransferFailed();
         } else {
