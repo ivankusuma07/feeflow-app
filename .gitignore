@@ -1,0 +1,29 @@
+node_modules/
+dist/
+.next/
+out/
+.turbo/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+.vercel/
+playwright-report/
+test-results/
+.lighthouseci/
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/31337/
+
+# Ponder
+services/indexer/.ponder/
+services/indexer/generated/
+
+# Source files kept outside git (originals live in docs/ or Magnific history)
+/FeeFlow_Development Brief.md
+/FeeFlow_Page Designs.html
+/magnific_*.png

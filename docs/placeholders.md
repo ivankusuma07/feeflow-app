@@ -1,0 +1,55 @@
+# Placeholder register
+
+Living list of every external value FeeFlow depends on. All values are validated by zod in
+`packages/config` at boot. A missing contract address puts the UI in "Not deployed yet" mode; it
+never falls back to sample data. Secrets live only in the host's secret store or KMS, never in git.
+
+Status key: **open** = not decided · **re-verify** = known, must be checked on deploy day ·
+**set** = decided and filled in.
+
+| Placeholder                     | Env var(s)                                              | Used by                 | Status                                                                                                                    |
+| ------------------------------- | ------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `CHAIN_ID`                      | `NEXT_PUBLIC_CHAIN_ID`, `CHAIN_ID`                      | all                     | 4663 (testnet 46630), re-verify                                                                                           |
+| `RPC_URL`                       | `NEXT_PUBLIC_RPC_URL`, `RPC_URL`, `RPC_URL_FALLBACK`    | all                     | open                                                                                                                      |
+| `EXPLORER_URL`                  | `NEXT_PUBLIC_EXPLORER_URL`                              | web                     | open                                                                                                                      |
+| `PONS_FACTORY_ADDRESS`          | `packages/config/src/addresses.ts`                      | contracts, indexer, web | `0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e`, re-verify                                                                   |
+| `PONS_ESCROW_ADDRESS`           | `packages/config/src/addresses.ts`                      | contracts, indexer      | `0xd3AFEB2a57f70eF218Aa82451c51B2fb0416Ac9e`, resolve per token                                                           |
+| `USDG_ADDRESS`                  | `packages/config/src/addresses.ts`                      | contracts, web          | `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, re-verify with Paxos docs                                                   |
+| `PONS_RECIPIENT_GETTER`         | `packages/abi`                                          | sdk, contracts          | open: name to confirm from verified ABI (Stage 0)                                                                         |
+| `CONTRACT_ADDRESS`              | `NEXT_PUBLIC_CONTRACT_ADDRESS`, `CONTRACT_ADDRESS`      | all                     | after deploy                                                                                                              |
+| `SINK_IMPLEMENTATION_ADDRESS`   | `NEXT_PUBLIC_SINK_IMPLEMENTATION_ADDRESS`               | all                     | after deploy                                                                                                              |
+| `CONTRACT_DEPLOY_BLOCK`         | `CONTRACT_DEPLOY_BLOCK`                                 | indexer                 | after deploy                                                                                                              |
+| `FEEFLOW_FEE_RECIPIENT`         | deploy script arg                                       | contracts               | open; multisig recommended; **immutable**                                                                                 |
+| `ADMIN_MULTISIG`                | deploy script arg                                       | contracts               | open                                                                                                                      |
+| `ATTESTER_ADDRESS`              | deploy script arg                                       | contracts               | open                                                                                                                      |
+| `ATTESTER_KEY`                  | `ATTESTER_KMS_KEY_ID` (prod), `ATTESTER_KEY` (dev only) | attestation             | open; key in KMS                                                                                                          |
+| `ATTESTER_TIMELOCK`             | deploy script arg                                       | contracts               | open; proposal 48 h                                                                                                       |
+| `PRIVY_APP_ID`                  | `NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_ID`              | web, attestation        | open                                                                                                                      |
+| `PRIVY_APP_SECRET`              | `PRIVY_APP_SECRET`                                      | attestation             | open                                                                                                                      |
+| `X_API_BEARER`                  | `X_API_BEARER`                                          | api                     | open; pay-per-use credits, spend limit set in console                                                                     |
+| `KEEPER_ADDRESS`, `KEEPER_HOST` | `KEEPER_KEY`                                            | keeper                  | open                                                                                                                      |
+| `COLLECT_THRESHOLD`             | `COLLECT_THRESHOLD_USDG`, `COLLECT_THRESHOLD_ETH`       | keeper                  | open; set after fork-test gas numbers                                                                                     |
+| `SWEEP_THRESHOLD`               | `SWEEP_THRESHOLD_USDG`, `SWEEP_THRESHOLD_ETH`           | keeper                  | open; set after fork-test gas numbers                                                                                     |
+| `KEEPER_STALE_AFTER`            | `NEXT_PUBLIC_KEEPER_STALE_AFTER`                        | web                     | default 3600 s, revisit                                                                                                   |
+| `INDEXER_URL`                   | `NEXT_PUBLIC_INDEXER_URL`                               | web                     | open                                                                                                                      |
+| `API_URL`                       | `NEXT_PUBLIC_API_URL`                                   | web                     | open (`api.` subdomain on the VPS)                                                                                        |
+| `CONFIRMATIONS`                 | `CONFIRMATIONS`                                         | indexer                 | default 12, revisit                                                                                                       |
+| `QUOTE_TTL`, `ATTESTATION_TTL`  | `ATTESTATION_TTL_SECONDS`                               | api                     | default 300 s, max 600 s                                                                                                  |
+| `DEX_SWAP_URL`                  | `NEXT_PUBLIC_DEX_SWAP_URL`                              | web claim success       | open: copy the exact Uniswap swap URL with Robinhood Chain pre-selected from app.uniswap.org; do not guess the chain slug |
+| `X_URL`                         | `NEXT_PUBLIC_X_URL`                                     | web                     | open                                                                                                                      |
+| `DOCS_URL`                      | `NEXT_PUBLIC_DOCS_URL`                                  | web                     | open (defaults to in-app `/docs`)                                                                                         |
+| `TELEGRAM_URL`                  | `NEXT_PUBLIC_TELEGRAM_URL`                              | web                     | open                                                                                                                      |
+| `TOS_URL`                       | `NEXT_PUBLIC_TOS_URL`                                   | web                     | open (defaults to in-app `/terms`)                                                                                        |
+| `PRIVACY_URL`                   | `NEXT_PUBLIC_PRIVACY_URL`                               | web                     | open (defaults to in-app `/privacy`)                                                                                      |
+| `DOMAIN`                        | `NEXT_PUBLIC_DOMAIN`                                    | web                     | open                                                                                                                      |
+| `AUDIT_STATUS`                  | `NEXT_PUBLIC_AUDIT_STATUS`                              | web                     | open; shown as `[AUDIT_STATUS]` until set                                                                                 |
+| `TOS_VERSION`                   | —                                                       | web                     | open; added once Terms are drafted                                                                                        |
+
+## Open decisions (owner: Fabio)
+
+- [ ] Confirm the `$FLOW` token image colour (proposal: black mark on white)
+- [ ] `FEEFLOW_FEE_RECIPIENT` and `ADMIN_MULTISIG` addresses
+- [ ] `ATTESTER_TIMELOCK` length (proposal: 48 h)
+- [ ] Exact Uniswap Robinhood Chain swap URL for `DEX_SWAP_URL`
+- [ ] Audit before mainnet: yes / no, and which firm
+- [ ] Domain
