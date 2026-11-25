@@ -1,0 +1,30 @@
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib", "node_modules"]
+solc_version = "0.8.28"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 10_000
+remappings = [
+  "forge-std/=lib/forge-std/src/",
+  "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+]
+
+fs_permissions = [{ access = "read", path = "./out" }]
+
+[fuzz]
+runs = 10_000
+
+[invariant]
+runs = 256
+depth = 50
+fail_on_revert = false
+
+[profile.ci.fuzz]
+runs = 10_000
+
+[fmt]
+line_length = 110
