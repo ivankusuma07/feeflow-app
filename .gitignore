@@ -27,3 +27,4 @@ services/indexer/generated/
 /FeeFlow_Development Brief.md
 /FeeFlow_Page Designs.html
 /magnific_*.png
+next-env.d.ts

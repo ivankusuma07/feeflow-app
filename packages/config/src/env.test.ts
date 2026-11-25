@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { splitGross } from "./constants.js";
-import { ConfigError, parsePublicEnv } from "./env.js";
+import { splitGross } from "./constants";
+import { ConfigError, parsePublicEnv } from "./env";
 
 describe("parsePublicEnv", () => {
   it("defaults to mainnet and the indexer data source", () => {

@@ -1,6 +1,6 @@
 import { isAddress, type Address } from "viem";
 import { z } from "zod";
-import { isSupportedChainId, type SupportedChainId } from "./chains.js";
+import { isSupportedChainId, type SupportedChainId } from "./chains";
 
 /** Treats "" as unset, so blank lines in .env files do not count as values. */
 const optionalString = z

@@ -1,5 +1,5 @@
 import type { Address } from "viem";
-import { ROBINHOOD_CHAIN_ID } from "./chains.js";
+import { ROBINHOOD_CHAIN_ID } from "./chains";
 
 export interface ThirdPartyAddresses {
   ponsFactory: Address;

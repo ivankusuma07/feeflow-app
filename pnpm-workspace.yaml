@@ -4,3 +4,4 @@ packages:
   - packages/*
 minimumReleaseAgeExclude:
   - "@types/react@19.3.1"
+  - lucide-react@1.80.0
