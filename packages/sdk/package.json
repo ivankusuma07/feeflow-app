@@ -1,0 +1,21 @@
+{
+  "name": "@feeflow/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@feeflow/abi": "workspace:*",
+    "@feeflow/config": "workspace:*",
+    "viem": "^2.58.6"
+  },
+  "devDependencies": {
+    "vitest": "^5.1.1"
+  }
+}
