@@ -1,7 +1,6 @@
 # ADR-001: Contract as Pons creator fee recipient
 
-- Status: **Proposed**. The design is implemented against mocks; the Stage 0 fork spike that
-  accepts or changes it has not run yet.
+- Status: **Accepted**, from the Stage 0 fork spike on 25 Nov 2026. A few open items remain (below).
 - Date: 25 Nov 2026
 
 ## Context
@@ -9,41 +8,81 @@
 FeeFlow needs a contract, not a wallet, to receive each routed token's Pons v2 creator fees. The
 brief requires proof on a mainnet fork that this works end to end before Stages 1–2 depend on it.
 
-## What the Pons docs say (read 25 Nov 2026, not yet checked against verified ABIs)
-
-Source: Pons developer docs (`pons-labs-llc.mintlify.app/developers/*`). `docs.ponsfamily.com/v2`
-is only a stub that links there.
-
-| Question                                           | Docs answer                                                                                                                                                                                                                                                                                                              | Consequence for FeeFlow                                                                                                        |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| Who can claim from the fee escrow?                 | Only `msg.sender`, for its own balance. No `claimFor`, no operator push, no owner rescue. A recipient contract that cannot call the escrow strands its fees.                                                                                                                                                             | The per-token **sink must be the recipient** and must call `claim()` / `claimToken(asset)` itself. This is the brief's design. |
-| Current recipient getter (`PONS_RECIPIENT_GETTER`) | `getLaunchedToken(token).creatorFeeRecipient`; `exists` is false for tokens of other factories                                                                                                                                                                                                                           | Used in `registerToken` and `_exit`                                                                                            |
-| `transferCreatorFeeRecipient(token, newRecipient)` | Only the current recipient. Immediate. Moves unswept fees and the whole buyback vest; amounts already in the escrow stay with the old recipient.                                                                                                                                                                         | Exits call it from the sink; exits collect first (try/catch) so escrow balances are credited before leaving                    |
-| Owner override                                     | Factory owner (2-of-3 Safe) can propose a new recipient; executable after 3 days, expires 3 days later; `CreatorFeeRecipientChangeProposed` event                                                                                                                                                                        | Token page shows a pending takeover warning; FeeFlow cannot block it (disclosed)                                               |
-| Sweeps                                             | Curve `sweepFees(minBuybackTokensOut)`, hook `sweepPoolFees(poolId, minConversionQuoteOut, minBuybackTokensOut)`. Sweeps needing an internal swap revert with `InternalSwapRequiresOperator()` unless run by the sweep operator `0xa101…cA83`, whose `sweepPool` / `sweepCurve` anyone can call (TWAP guard, cooldowns). | **Design change:** no sweep passthrough in `FeeSink`. The keeper and the token page call the sweep operator directly.          |
-| Testnet                                            | No 46630 deployment documented                                                                                                                                                                                                                                                                                           | Integration tests run on a 4663 fork                                                                                           |
-| Network                                            | RPC `https://rpc.mainnet.chain.robinhood.com`; explorers `robin.etherscan.io`, `robinhoodchain.blockscout.com`; `block.number` is the L1 block                                                                                                                                                                           | Contracts use `block.timestamp` only                                                                                           |
-
-## Decision (pending fork evidence)
+## Decision
 
 1. One `FeeSink` EIP-1167 clone per token, CREATE2 salt = token address, created by `FeeFlow` at
    registration. The sink is the Pons creator fee recipient and the only caller of the escrow for its balance.
 2. `FeeFlow` supports only the active Pons v2 stack (factory and escrow are immutables). Tokens
-   from archived or legacy stacks are rejected by `getLaunchedToken(..).exists`.
-3. Native-ETH pairs are identified by `pairToken == address(0)`. **To verify on the fork.**
+   from other stacks are rejected because `getLaunchedToken(..).exists` is false for them.
+3. Native-ETH pairs are identified by `pairToken == address(0)` (confirmed).
+4. Sweeps are not proxied by the sink. Anyone (the keeper, or a user from the token page) calls
+   the public sweep operator's `sweepCurve(curve)` / `sweepPool(poolId)` directly.
 
-## Open questions for the fork spike
+## Evidence (Robinhood Chain 4663 fork, public RPC, blocks ~123,084,000–123,086,000)
 
-- [ ] Verify every signature in `contracts/src/interfaces/IPons.sol` against the verified explorer
-      ABIs, especially the `LaunchedToken` struct field order and `transferCreatorFeeRecipient` types.
-- [ ] Confirm how native-ETH pairs report `pairToken` (zero address or WETH).
-- [ ] Buyback-vest releases credit the **launch token** to the recipient's escrow ledger. The sink
-      only claims the pair asset, so such launch-token balances would sit in the escrow under the
-      sink. Decide: ignore (disclose), or add a sink path that forwards them to the creator.
-- [ ] Exact sweep-operator signatures (`sweepPool`, `sweepCurve`) and which tokens need it.
-- [ ] Gas per step for both pair types (sets `COLLECT_THRESHOLD` and `SWEEP_THRESHOLD`).
-- [ ] USDG pause/freeze function names from Paxos docs, and the revert shape when paused.
+Suite: `contracts/test/fork/PonsFork.t.sol`. It runs only with `FORK_RPC_URL` set:
 
-## Evidence
+```
+FORK_RPC_URL=https://rpc.mainnet.chain.robinhood.com forge test --match-path "test/fork/*" -vv
+```
 
-To be added by the spike: fork block, tx traces, gas table.
+All 4 tests pass against the live factory, escrow, curves and sweep operator:
+
+| Test                                         | What it proves                                                                                                                                                                                                                                                            |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test_fork_interfacesDecode`                 | `getLaunchedToken` decodes with the `IPons.sol` struct; the USDG pair reports USDG, the ETH pair reports `address(0)`; unknown tokens return `exists = false`; `getLaunchFeePolicy` decodes                                                                               |
+| `test_fork_transferRequiresCurrentRecipient` | A non-recipient gets `NotCreatorFeeRecipient()` (`0xb9f93944`)                                                                                                                                                                                                            |
+| `test_fork_usdgPair_endToEnd`                | Recipient → creator → register → creator moves the recipient to the sink → real 3,000 USDG buy → operator sweep credits 11.65 USDG to the sink in the escrow → `collect` pulls all of it, takes 1% → `claim` pays the net → `exitByCreator` moves the Pons recipient away |
+| `test_fork_ethPair_endToEnd`                 | Same flow on a native-ETH pair (0.5 ETH buy → ~0.015 ETH credited)                                                                                                                                                                                                        |
+
+### How the ABIs were verified
+
+The explorers' verified-source APIs (robin.etherscan.io, robinhoodchain.blockscout.com) sit behind a
+bot check, and the Etherscan v2 API needs a key. Instead:
+
+- **Selectors:** each function FeeFlow calls has its 4-byte selector in the deployed dispatcher.
+  None of the three contracts is an ERC-1967 proxy, so the code checked is the code that runs.
+- **Live decoding:** return values decode with sensible data, e.g. graduation thresholds of 4.2e18
+  for the ETH pair and 7,225.722 USDG (6 decimals) for the USDG pair. A USDG token's recipient
+  matches its `CreatorFeeRecipientUpdated` log.
+- **Events:** the topics of `TokenLaunched(address,address,address,address,uint256,uint256)` (token,
+  curve and deployer indexed) and `CreatorFeeRecipientUpdated(address,address,address)` match the
+  factory logs exactly.
+- **Wiring:** `factory.feeEscrow()` returns the escrow address in `packages/config`; `factory.owner()`
+  is the Safe named in the Pons docs (`0x263e…19Dd`).
+
+### Findings
+
+| Finding                                                                                                                                                                                      | Consequence                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `curve.sweepFees` reverts `NotFeeSweepOperator()` (`0x8d42130c`) for everyone except the operator                                                                                            | Sweeps go through the operator (decision 4)                                                                                                                                                          |
+| The operator reverts `BelowFloor()` (`0x4e7e2916`) when a curve's accrued fees are below a floor (the fees from a 500 USDG buy, ~8 USDG on the curve, were refused; a 3,000 USDG buy passed) | The keeper must check balances before sweeping. The token page shows "not enough fees to sweep yet" (added to `decodeError`)                                                                         |
+| The escrow pays `msg.sender` only                                                                                                                                                            | Confirms the sink must be the recipient                                                                                                                                                              |
+| `transferCreatorFeeRecipient` is immediate                                                                                                                                                   | Route step 2/2 and exits take effect in one tx                                                                                                                                                       |
+| Launch policy on both tokens: protocol share 3000 bps, buyback/burn 5000 bps, hook fee 100 bps, max internal impact 300 bps                                                                  | Shown on the token page's fee policy card                                                                                                                                                            |
+| **Not only USDG and ETH.** Of ~3,600 launches in the last 5M blocks: ~3,010 ETH, ~140 USDG, and ~430 paired with ~30 other ERC-20s                                                           | FeeFlow's accounting is asset-agnostic (balance delta), but the app and indexer know only USDG and ETH. **Decision needed:** reject other pairs at `registerToken`, or support any ERC-20 in the app |
+
+### Gas (fork, per step)
+
+| Step                                 | USDG pair | ETH pair |
+| ------------------------------------ | --------: | -------: |
+| `registerToken` (deploys the sink)   |   362,664 |  322,864 |
+| `transferCreatorFeeRecipient` → sink |    10,472 |   10,472 |
+| `operator.sweepCurve`                |   288,633 |  112,340 |
+| `collect` (first batch)              |   264,582 |  213,704 |
+| `claim` (1 token)                    |   106,831 |  109,938 |
+| `exitByCreator`                      |    33,246 |   28,320 |
+
+Measured with `gasleft()` around the call in the test, so cold-storage costs are included but not
+the 21k intrinsic cost. Inputs for `COLLECT_THRESHOLD` and `SWEEP_THRESHOLD`.
+
+## Open items
+
+- [ ] **Other pair tokens** (see findings): product decision before deploy.
+- [ ] **Buyback-vest launch-token credits.** No launch-token credit appeared in the escrow for the
+      sink during a single buy and sweep. Vest releases are time-based, so this needs a longer
+      fork run, or reading a token whose vest has released. If credits do appear, the sink cannot
+      claim them today.
+- [ ] **Exact floor value** for `BelowFloor`: read it from the operator, or binary-search it on a fork.
+- [ ] **USDG pause/freeze** function names (Paxos). The unit suite covers a paused asset with a mock.
+- [ ] **Pinned-block fork in CI** needs an archive RPC; the public RPC serves recent state only.

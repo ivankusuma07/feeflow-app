@@ -77,3 +77,9 @@ describe("decodeError", () => {
     expect(decodeError(new Error("boom")).kind).toBe("unknown");
   });
 });
+
+describe("decodeError (Pons)", () => {
+  it("decodes the sweep floor error seen on the mainnet fork", () => {
+    expect(decodeError({ cause: { data: "0x4e7e2916" } }).errorName).toBe("BelowFloor");
+  });
+});

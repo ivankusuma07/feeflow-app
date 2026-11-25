@@ -5,9 +5,11 @@ pragma solidity ^0.8.28;
  * Pons v2 interfaces used by FeeFlow.
  *
  * SOURCE: Pons developer docs (pons-labs-llc.mintlify.app/developers/*), read 25 Nov 2026.
- * STATUS: NOT YET VERIFIED against the explorer ABIs. Stage 0 must replace or confirm every
- * signature here from the verified sources at robin.etherscan.io before mainnet. Where the docs
- * gave no Solidity types, the types below are inferred and marked as such.
+ * STATUS: VERIFIED on a Robinhood Chain (4663) fork, 25 Nov 2026 (ADR-001, test/fork/PonsFork.t.sol):
+ * every selector below is present in the deployed bytecode, return values decode as declared,
+ * and the full route/collect/claim/exit flow runs against the live factory and escrow.
+ * The explorers' verified-source APIs sit behind a bot check, so verification is by bytecode
+ * selectors plus live decoding, not by comparing published ABI files.
  */
 
 /// @dev Struct as listed in the docs for `getLaunchedToken`. Field order matters for ABI decoding.
