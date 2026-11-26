@@ -3,6 +3,9 @@ packages:
   - services/*
   - packages/*
   - contracts
+allowBuilds:
+  # postinstall is only a version check (scripts/appkit-version-check.js); not needed.
+  "@reown/appkit": false
 minimumReleaseAgeExclude:
   - "@types/react@19.3.1"
   - lucide-react@1.80.0

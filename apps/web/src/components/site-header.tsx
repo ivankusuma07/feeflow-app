@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Wordmark } from "@feeflow/ui";
 import { links } from "@/lib/config";
 import { HeaderActions } from "./header-actions";
@@ -13,7 +14,11 @@ export const NAV_ITEMS = [
   { href: "/docs", label: "Docs" },
 ] as const;
 
-export function SiteHeader() {
+/**
+ * `actions` defaults to the static logged-out buttons (marketing pages ship without auth JS);
+ * app routes pass the auth-aware actions rendered inside `AppProviders`.
+ */
+export function SiteHeader({ actions }: { actions?: ReactNode } = {}) {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface">
       <div className="container-page flex min-h-16 items-center gap-5">
@@ -35,10 +40,8 @@ export function SiteHeader() {
               <XIcon size={16} />
             </a>
           )}
-          <div className="hidden gap-2.5 lg:flex">
-            <HeaderActions />
-          </div>
-          <MobileMenu items={NAV_ITEMS} xUrl={links.x} />
+          <div className="hidden gap-2.5 lg:flex">{actions ?? <HeaderActions />}</div>
+          <MobileMenu items={NAV_ITEMS} xUrl={links.x} actions={actions} />
         </div>
       </div>
     </header>

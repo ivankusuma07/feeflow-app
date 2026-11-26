@@ -1,0 +1,75 @@
+"use client";
+
+import { Toaster } from "@feeflow/ui";
+import { PrivyProvider, type PrivyClientConfig } from "@privy-io/react-auth";
+import {
+  WagmiProvider as PrivyWagmiProvider,
+  createConfig as createPrivyWagmiConfig,
+} from "@privy-io/wagmi";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState, type ReactNode } from "react";
+import { http } from "viem";
+import { WagmiProvider, createConfig } from "wagmi";
+import { AuthContext, DISABLED_AUTH } from "@/auth/auth-context";
+import { PrivyAuthBridge } from "@/auth/privy-auth";
+import { DataSourceProvider } from "@/data/context";
+import { appChain, rpcUrl } from "@/lib/chain";
+import { env } from "@/lib/config";
+
+const transports = { [appChain.id]: http(rpcUrl ?? undefined) } as const;
+
+const privyConfig: PrivyClientConfig = {
+  loginMethods: ["twitter", "wallet"],
+  appearance: { theme: "light", accentColor: "#CCFF00", walletChainType: "ethereum-only" },
+  embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },
+  defaultChain: appChain,
+  supportedChains: [appChain],
+};
+
+function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { staleTime: 30_000, refetchOnWindowFocus: false, retry: 1 },
+    },
+  });
+}
+
+/**
+ * Client providers for the app routes only (the landing page ships without them).
+ * With a Privy app id: Privy → React Query → Privy's wagmi adapter → auth bridge.
+ * Without one (local dev, CI builds): plain wagmi and a disabled auth state, so pages still render.
+ */
+export function AppProviders({ children }: { children: ReactNode }) {
+  const [queryClient] = useState(makeQueryClient);
+  const appId = env.NEXT_PUBLIC_PRIVY_APP_ID;
+
+  const inner = (
+    <DataSourceProvider>
+      {children}
+      <Toaster />
+    </DataSourceProvider>
+  );
+
+  if (!appId) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <WagmiProvider config={plainWagmiConfig}>
+          <AuthContext.Provider value={DISABLED_AUTH}>{inner}</AuthContext.Provider>
+        </WagmiProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  return (
+    <PrivyProvider appId={appId} config={privyConfig}>
+      <QueryClientProvider client={queryClient}>
+        <PrivyWagmiProvider config={privyWagmiConfig}>
+          <PrivyAuthBridge>{inner}</PrivyAuthBridge>
+        </PrivyWagmiProvider>
+      </QueryClientProvider>
+    </PrivyProvider>
+  );
+}
+
+const privyWagmiConfig = createPrivyWagmiConfig({ chains: [appChain], transports, ssr: true });
+const plainWagmiConfig = createConfig({ chains: [appChain], transports, ssr: true });

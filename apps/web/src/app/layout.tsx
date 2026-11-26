@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import { env } from "@/lib/config";
 import "./globals.css";
 
@@ -36,9 +34,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <a href="#main" className="sr-only-focusable rounded-lg bg-surface px-4 py-2 shadow">
           Skip to content
         </a>
-        <SiteHeader />
+        {/* Header and footer come from the route-group layouts: (site) is static, (app) adds auth. */}
         {children}
-        <SiteFooter />
       </body>
     </html>
   );
