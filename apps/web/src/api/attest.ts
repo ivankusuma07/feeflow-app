@@ -92,12 +92,92 @@ export async function requestClaimAttestation({
   if (result.to !== getAddress(to)) {
     throw new UserFacingError("The approval was for a different wallet. Try again.");
   }
-  const nowSec = BigInt(Math.floor(now() / 1000));
-  if (result.expiry <= nowSec) {
-    throw new UserFacingError("Attestation expired. Your form is kept.");
+  checkExpiry(result.expiry, now);
+  return result;
+}
+
+// ---------------------------------------------------------------- register
+
+/**
+ * `POST /api/attest/register` (brief §Attestation service): the service checks the X user id
+ * exists via the X API and signs `Register{token, xUserId, nonce, expiry}`. It attests only that
+ * the id exists, not ownership; the creator's own Route signature is what binds the token.
+ */
+export interface RegisterAttestation {
+  token: Address;
+  xUserId: bigint;
+  nonce: bigint;
+  expiry: bigint;
+  attestation: Hex;
+}
+
+const registerSchema = z.object({
+  token: z.string().refine((v) => isAddress(v), "invalid address"),
+  xUserId: uint,
+  nonce: uint,
+  expiry: uint,
+  attestation: z.string().refine((v) => isHex(v) && v.length > 2, "invalid signature"),
+});
+
+export interface RequestRegisterAttestationArgs {
+  apiUrl: string | undefined;
+  token: Address;
+  xUserId: string;
+  fetchImpl?: typeof fetch;
+  now?: () => number;
+}
+
+export async function requestRegisterAttestation({
+  apiUrl,
+  token,
+  xUserId,
+  fetchImpl = fetch,
+  now = Date.now,
+}: RequestRegisterAttestationArgs): Promise<RegisterAttestation> {
+  if (!apiUrl) {
+    throw new UserFacingError("The FeeFlow approval service is not set up yet.", false);
   }
-  if (result.expiry - nowSec > MAX_TTL_SECONDS + 60n) {
+  let res: Response;
+  try {
+    res = await fetchImpl(`${apiUrl.replace(/\/$/, "")}/api/attest/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token, xUserId }),
+    });
+  } catch {
+    throw new UserFacingError("The FeeFlow approval service could not be reached. Try again.");
+  }
+  if (res.status === 404) {
+    throw new UserFacingError("That X account could not be found. Check the handle.", false);
+  }
+  if (res.status === 429) {
+    throw new UserFacingError("Too many requests. Wait a minute, then try again.");
+  }
+  if (!res.ok) {
+    throw new UserFacingError("The FeeFlow approval service is unavailable. Try again.");
+  }
+  const parsed = registerSchema.safeParse(await res.json().catch(() => null));
+  if (!parsed.success) {
     throw new UserFacingError("The FeeFlow approval service sent an invalid reply. Try again.");
   }
+  const result: RegisterAttestation = {
+    token: getAddress(parsed.data.token),
+    xUserId: BigInt(parsed.data.xUserId),
+    nonce: BigInt(parsed.data.nonce),
+    expiry: BigInt(parsed.data.expiry),
+    attestation: parsed.data.attestation as Hex,
+  };
+  if (result.token !== getAddress(token) || result.xUserId.toString() !== xUserId) {
+    throw new UserFacingError("The approval did not match this token and X account. Try again.");
+  }
+  checkExpiry(result.expiry, now);
   return result;
+}
+
+function checkExpiry(expiry: bigint, now: () => number) {
+  const nowSec = BigInt(Math.floor(now() / 1000));
+  if (expiry <= nowSec) throw new UserFacingError("Attestation expired. Your form is kept.");
+  if (expiry - nowSec > MAX_TTL_SECONDS + 60n) {
+    throw new UserFacingError("The FeeFlow approval service sent an invalid reply. Try again.");
+  }
 }

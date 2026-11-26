@@ -1,6 +1,6 @@
 import { decodeError } from "@feeflow/sdk";
 import { describe, expect, it } from "vitest";
-import { requestClaimAttestation } from "./attest";
+import { requestClaimAttestation, requestRegisterAttestation } from "./attest";
 
 const TO = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" as const;
 const NOW = 1_800_000_000_000;
@@ -98,6 +98,43 @@ describe("requestClaimAttestation", () => {
     );
     expect(await message(call(ok() as typeof fetch, ""))).toBe(
       "The FeeFlow approval service is not set up yet.",
+    );
+  });
+});
+
+describe("requestRegisterAttestation", () => {
+  const TOKEN = "0x00000000000000000000000000000000000000A1";
+  const register = (body: Record<string, unknown>, status = 200) =>
+    requestRegisterAttestation({
+      apiUrl: "https://api.example",
+      token: TOKEN,
+      xUserId: "1234567890",
+      fetchImpl: reply(status, body) as typeof fetch,
+      now: () => NOW,
+    });
+  const good = {
+    token: TOKEN.toLowerCase(),
+    xUserId: "1234567890",
+    nonce: "3",
+    expiry: NOW / 1000 + 300,
+    attestation: SIG,
+  };
+
+  it("returns a checked Register attestation", async () => {
+    const att = await register(good);
+    expect(att.xUserId).toBe(1234567890n);
+    expect(att.nonce).toBe(3n);
+  });
+
+  it("refuses attestations for another token or id, and maps 404", async () => {
+    expect(await message(register({ ...good, xUserId: "1" }))).toBe(
+      "The approval did not match this token and X account. Try again.",
+    );
+    expect(
+      await message(register({ ...good, token: "0x00000000000000000000000000000000000000b2" })),
+    ).toBe("The approval did not match this token and X account. Try again.");
+    expect(await message(register({}, 404))).toBe(
+      "That X account could not be found. Check the handle.",
     );
   });
 });
