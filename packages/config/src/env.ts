@@ -149,12 +149,22 @@ export type KeeperEnv = z.infer<typeof keeperEnvSchema>;
 
 /** Indexer (services/indexer). */
 export const indexerEnvSchema = z.object({
+  NODE_ENV: nodeEnv,
   CHAIN_ID: chainId,
   RPC_URL: requiredUrl,
-  DATABASE_URL: requiredUrl,
+  RPC_URL_FALLBACK: optionalUrl,
+  /** Unset: an embedded PGlite database (development only; refused in production). */
+  DATABASE_URL: optionalUrl,
   CONTRACT_ADDRESS: requiredAddress,
   CONTRACT_DEPLOY_BLOCK: z.coerce.number().int().nonnegative(),
+  /** Reorg depth: blocks newer than this are treated as unfinalized. */
   CONFIRMATIONS: z.coerce.number().int().nonnegative().default(12),
+  /** Blocks between escrow-balance snapshots of routed tokens. */
+  SNAPSHOT_INTERVAL_BLOCKS: z.coerce.number().int().positive().default(1200),
+  /** Comma-separated allowed origins for the REST API (the Vercel domain). */
+  CORS_ORIGIN: z.string().min(1),
+  /** Unset: accounts are served by numeric id only (no handle or avatar). */
+  X_API_BEARER: optionalString,
 });
 export type IndexerEnv = z.infer<typeof indexerEnvSchema>;
 
