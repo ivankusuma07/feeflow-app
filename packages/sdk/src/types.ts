@@ -10,7 +10,7 @@ export type { PairAsset };
 export type Address = `0x${string}`;
 export type Hash = `0x${string}`;
 
-/** Base-unit amount in a pair asset. */
+/** Base-unit amount in a pair asset (native ETH, USDG or any other ERC-20 Pons allows). */
 export interface Amount {
   asset: PairAsset;
   /** Base units as a decimal string. */
@@ -112,6 +112,7 @@ export interface TokenDetail extends TokenSummary {
   expiredToCreator: Amount;
 }
 
+/** Protocol totals for one pair asset. Amounts in different assets are never summed. */
 export interface AssetTotals {
   asset: PairAsset;
   collectedGross: string;
@@ -124,8 +125,8 @@ export interface AssetTotals {
 }
 
 export interface Totals {
-  usdg: AssetTotals;
-  eth: AssetTotals;
+  /** One entry per pair asset with any activity, ETH and USDG first, then by volume. */
+  assets: AssetTotals[];
   tokensRouted: number;
   updatedAt: number;
 }

@@ -33,6 +33,11 @@ contract PonsForkTest is Test {
     /// Recent pre-graduation launches found from TokenLaunched logs on 25 Nov 2026.
     address constant USDG_TOKEN = 0xB6AE0125a3a3feC85e51e55ed27d171bF74D21c1;
     address constant ETH_TOKEN = 0xd99ad830EB6aEB3B2cD72a0D62df6FBd2203d51A;
+    /// Paired with other ERC-20s Pons allows: Robinhood stock tokens GME and ANT (18 decimals).
+    address constant GME_PAIR_TOKEN = 0xF82fD0874c53C8aFA5A88C4a23d139359326015f;
+    address constant ANT_PAIR_TOKEN = 0x0da42f41E04b83817B451606a3f961d9442e85A7;
+    address constant GME = 0x1b0E319c6A659F002271B69dB8A7df2F911c153E;
+    address constant ANT = 0xbbB6c29bCc3a1028A2B54310DF73F4F7A3bcB373;
 
     uint64 constant X_ID = 1234567890;
 
@@ -109,6 +114,23 @@ contract PonsForkTest is Test {
     address tAsset;
     address tSink;
     uint256 tNet;
+
+    /// FeeFlow accepts any pair asset Pons allows; these prove it on two stock-token pairs.
+    function test_fork_otherErc20Pair_gme_endToEnd() public onlyFork {
+        assertEq(FACTORY.getLaunchedToken(GME_PAIR_TOKEN).pairToken, GME);
+        _endToEnd(GME_PAIR_TOKEN, _fractionOfThreshold(GME_PAIR_TOKEN));
+    }
+
+    function test_fork_otherErc20Pair_ant_endToEnd() public onlyFork {
+        assertEq(FACTORY.getLaunchedToken(ANT_PAIR_TOKEN).pairToken, ANT);
+        _endToEnd(ANT_PAIR_TOKEN, _fractionOfThreshold(ANT_PAIR_TOKEN));
+    }
+
+    /// 40% of the graduation threshold: large enough to clear the sweep floor, small enough not to
+    /// graduate the curve.
+    function _fractionOfThreshold(address token) internal view returns (uint256) {
+        return FACTORY.getLaunchedToken(token).graduationThreshold * 40 / 100;
+    }
 
     function _endToEnd(address token, uint256 buyAmount) internal {
         LaunchedToken memory lt = FACTORY.getLaunchedToken(token);
