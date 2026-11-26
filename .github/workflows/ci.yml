@@ -42,10 +42,15 @@ jobs:
       - run: pnpm --filter @feeflow/web lighthouse
 
   e2e:
-    name: E2E (Playwright + axe, mock data)
+    name: E2E (Playwright + axe; write paths on Anvil)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -55,6 +60,7 @@ jobs:
       - run: pnpm turbo run build --filter=@feeflow/web^...
       - run: pnpm --filter @feeflow/web exec playwright install --with-deps chromium
       - run: pnpm --filter @feeflow/web e2e
+      - run: pnpm --filter @feeflow/web e2e:anvil
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

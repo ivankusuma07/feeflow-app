@@ -31,6 +31,16 @@ describe("parsePublicEnv", () => {
     ).toThrow(ConfigError);
   });
 
+  it("rejects the mock login in production, allows it in development", () => {
+    expect(() => parsePublicEnv({ NODE_ENV: "production", NEXT_PUBLIC_MOCK_AUTH: "1" })).toThrow(
+      ConfigError,
+    );
+    expect(
+      parsePublicEnv({ NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "1" }).env
+        .NEXT_PUBLIC_MOCK_AUTH,
+    ).toBe("1");
+  });
+
   it("rejects unsupported chains and bad addresses", () => {
     expect(() => parsePublicEnv({ NEXT_PUBLIC_CHAIN_ID: "1" })).toThrow(ConfigError);
     expect(() => parsePublicEnv({ NEXT_PUBLIC_CONTRACT_ADDRESS: "0x123" })).toThrow(ConfigError);
