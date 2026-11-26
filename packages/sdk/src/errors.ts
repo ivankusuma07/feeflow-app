@@ -21,6 +21,7 @@ export type DecodedErrorKind =
   | "wrong-network"
   | "contract"
   | "network"
+  | "service"
   | "unknown";
 
 export interface DecodedError {
@@ -173,8 +174,26 @@ function textOf(err: unknown): string {
   return [e.name, e.shortMessage, e.message, e.details].filter(Boolean).join(" ");
 }
 
+/**
+ * An error whose message is already written for the user (e.g. from FeeFlow's own services).
+ * `decodeError` passes its message through unchanged.
+ */
+export class UserFacingError extends Error {
+  readonly userFacing = true;
+  constructor(
+    message: string,
+    readonly retryable = true,
+  ) {
+    super(message);
+    this.name = "UserFacingError";
+  }
+}
+
 /** Turns wallet, RPC and contract errors into one short user-facing message. */
 export function decodeError(err: unknown): DecodedError {
+  if (err instanceof UserFacingError) {
+    return { kind: "service", message: err.message, retryable: err.retryable };
+  }
   const text = textOf(err);
 
   if (
