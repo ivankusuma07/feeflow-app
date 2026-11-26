@@ -4,6 +4,8 @@ packages:
   - packages/*
   - contracts
 allowBuilds:
+  # Installs the platform binary that tsx (services) runs on.
+  esbuild: true
   # postinstall is only a version check (scripts/appkit-version-check.js); not needed.
   "@reown/appkit": false
 minimumReleaseAgeExclude:
