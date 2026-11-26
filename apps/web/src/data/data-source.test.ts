@@ -20,13 +20,13 @@ describe("indexer adapter", () => {
     await ds.getToken("0xAbCd");
     await ds.getKeeperStatus();
     expect(f.mock.calls.map((c) => (c as unknown[])[0])).toEqual([
-      "https://indexer.example/v1/totals",
-      "https://indexer.example/v1/claims/recent?limit=5",
-      "https://indexer.example/v1/tokens/top?limit=3",
-      "https://indexer.example/v1/leaderboard?period=30d&asset=0xABC&limit=50",
-      "https://indexer.example/v1/accounts/1234567890",
-      "https://indexer.example/v1/tokens/0xabcd",
-      "https://indexer.example/v1/keeper",
+      "https://indexer.example/api/totals",
+      "https://indexer.example/api/claims/recent?limit=5",
+      "https://indexer.example/api/tokens/top?limit=3",
+      "https://indexer.example/api/leaderboard?period=30d&asset=0xABC&limit=50",
+      "https://indexer.example/api/accounts/1234567890",
+      "https://indexer.example/api/tokens/0xabcd",
+      "https://indexer.example/api/keeper/status",
     ]);
   });
 
