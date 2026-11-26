@@ -1,8 +1,14 @@
-import { PAIR_ASSET_DECIMALS, type PairAsset } from "@feeflow/config";
+import { isNative, knownPairAssets, sameAsset, type PairAsset } from "@feeflow/config";
 import type { Amount } from "./types";
 
-/** Display precision per asset: USDG to cents, ETH to 4 places (as in the designs). */
-export const DISPLAY_DECIMALS: Record<PairAsset, number> = { USDG: 2, ETH: 4 };
+/**
+ * Display precision: stablecoin-like assets (6 decimals or fewer, e.g. USDG) to 2 places, ETH and
+ * 18-decimal tokens to 4 places, as in the designs. Never more than the asset's own decimals.
+ */
+export function displayDecimals(asset: PairAsset): number {
+  const preferred = !isNative(asset) && asset.decimals <= 6 ? 2 : 4;
+  return Math.min(preferred, asset.decimals);
+}
 
 export function toBig(v: string | bigint | number): bigint {
   return typeof v === "bigint" ? v : BigInt(v);
@@ -17,13 +23,25 @@ export function zero(asset: PairAsset): Amount {
 }
 
 export function addAmounts(a: Amount, b: Amount): Amount {
-  if (a.asset !== b.asset) throw new Error(`cannot add ${a.asset} and ${b.asset}`);
+  if (!sameAsset(a.asset, b.asset)) {
+    throw new Error(`cannot add ${a.asset.address} and ${b.asset.address}`);
+  }
   return amount(a.asset, toBig(a.raw) + toBig(b.raw));
 }
 
+/** Sums amounts per asset, keeping first-seen order. */
+export function sumByAsset(amounts: Amount[]): Amount[] {
+  const out: Amount[] = [];
+  for (const a of amounts) {
+    const i = out.findIndex((o) => sameAsset(o.asset, a.asset));
+    if (i === -1) out.push({ ...a });
+    else out[i] = addAmounts(out[i]!, a);
+  }
+  return out;
+}
+
 /** Parses a human decimal string ("212.40") into base units. Truncates extra digits. */
-export function parseUnitsSafe(value: string, asset: PairAsset): bigint {
-  const decimals = PAIR_ASSET_DECIMALS[asset];
+export function parseUnitsSafe(value: string, decimals: number): bigint {
   const [whole = "0", frac = ""] = value.trim().split(".");
   const fracPadded = (frac + "0".repeat(decimals)).slice(0, decimals);
   return BigInt(whole || "0") * 10n ** BigInt(decimals) + BigInt(fracPadded || "0");
@@ -31,7 +49,7 @@ export function parseUnitsSafe(value: string, asset: PairAsset): bigint {
 
 /**
  * Formats base units with grouping and fixed display decimals, rounding down so a balance is never
- * shown larger than it is. `formatRaw(212_400_000n, "USDG") === "212.40"`.
+ * shown larger than it is. `formatRaw(212_400_000n, USDG) === "212.40"`.
  */
 export function formatRaw(
   raw: bigint | string,
@@ -39,8 +57,8 @@ export function formatRaw(
   opts: { decimals?: number } = {},
 ): string {
   const value = toBig(raw);
-  const decimals = PAIR_ASSET_DECIMALS[asset];
-  const shown = opts.decimals ?? DISPLAY_DECIMALS[asset];
+  const decimals = asset.decimals;
+  const shown = Math.min(opts.decimals ?? displayDecimals(asset), decimals);
   const negative = value < 0n;
   const abs = negative ? -value : value;
   const base = 10n ** BigInt(decimals);
@@ -51,12 +69,39 @@ export function formatRaw(
   return `${negative ? "−" : ""}${wholeStr}${shown > 0 ? `.${fracStr}` : ""}`;
 }
 
+/** C0/C1 control characters, zero-width characters and bidi overrides/isolates. */
+// eslint-disable-next-line no-control-regex
+const UNSAFE_CHARS = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
+
+const RESERVED_SYMBOLS = new Set(["ETH", "WETH", "USDG", "USDC", "USDT"]);
+
+/**
+ * Symbol safe to render. Known assets (ETH, USDG) use their fixed names. Other ERC-20 symbols are
+ * token-controlled: control and bidi characters are stripped, length is capped, and a symbol that
+ * imitates a well-known asset gets the token address appended so it cannot pass as the real one.
+ */
+export function displaySymbol(asset: PairAsset, chainId?: number): string {
+  if (chainId !== undefined) {
+    const known = knownPairAssets(chainId).find((k) => sameAsset(k, asset));
+    if (known) return known.symbol;
+  } else if (isNative(asset)) {
+    return "ETH";
+  }
+  const clean = asset.symbol.replace(UNSAFE_CHARS, "").trim();
+  const capped = clean.length > 12 ? `${clean.slice(0, 11)}…` : clean;
+  if (!capped) return shortAddress(asset.address);
+  if (chainId !== undefined && RESERVED_SYMBOLS.has(capped.toUpperCase())) {
+    return `${capped} (${shortAddress(asset.address)})`;
+  }
+  return capped;
+}
+
 export function formatAmount(
   a: Amount,
-  opts: { withUnit?: boolean; decimals?: number } = {},
+  opts: { withUnit?: boolean; decimals?: number; chainId?: number } = {},
 ): string {
   const n = formatRaw(a.raw, a.asset, opts);
-  return opts.withUnit === false ? n : `${n} ${a.asset}`;
+  return opts.withUnit === false ? n : `${n} ${displaySymbol(a.asset, opts.chainId)}`;
 }
 
 /** "0x12a4…9aF3" */

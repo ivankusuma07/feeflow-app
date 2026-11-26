@@ -17,12 +17,30 @@ export const MAX_ATTESTATION_TTL_SECONDS = 10 * 60;
 export const TOKEN_NAME = "FLOW";
 export const TOKEN_TICKER = "$FLOW";
 
-export type PairAsset = "USDG" | "ETH";
+/**
+ * The asset a Pons token is paired with, which is the asset its creator fees are paid in.
+ * FeeFlow accepts any pair Pons allows: native ETH (`address(0)`), USDG, or any other ERC-20.
+ * `symbol` and `decimals` of other ERC-20s come from the token contract (indexer) and are
+ * untrusted display data; identify assets by `address` only.
+ */
+export interface PairAsset {
+  /** `0x0000…0000` for native ETH. Lowercase or checksummed; compare with `sameAsset`. */
+  address: `0x${string}`;
+  symbol: string;
+  decimals: number;
+}
 
-export const PAIR_ASSET_DECIMALS: Record<PairAsset, number> = {
-  USDG: 6,
-  ETH: 18,
-};
+export const NATIVE_ASSET_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
+
+export const NATIVE_ETH: PairAsset = { address: NATIVE_ASSET_ADDRESS, symbol: "ETH", decimals: 18 };
+
+export function isNative(asset: Pick<PairAsset, "address">): boolean {
+  return asset.address.toLowerCase() === NATIVE_ASSET_ADDRESS;
+}
+
+export function sameAsset(a: Pick<PairAsset, "address">, b: Pick<PairAsset, "address">): boolean {
+  return a.address.toLowerCase() === b.address.toLowerCase();
+}
 
 /** Splits a gross collection into FeeFlow fee and net credit, as the contract does. */
 export function splitGross(gross: bigint): { fee: bigint; net: bigint } {

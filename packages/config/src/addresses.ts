@@ -1,5 +1,6 @@
 import type { Address } from "viem";
 import { ROBINHOOD_CHAIN_ID } from "./chains";
+import { NATIVE_ETH, type PairAsset } from "./constants";
 
 export interface ThirdPartyAddresses {
   ponsFactory: Address;
@@ -20,3 +21,12 @@ export const THIRD_PARTY_ADDRESSES: Partial<Record<number, ThirdPartyAddresses>>
     usdg: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
   },
 };
+
+/**
+ * Pair assets the app knows by name on a chain: native ETH and USDG. Tokens paired with any other
+ * ERC-20 still work; their symbol and decimals are read from the token contract.
+ */
+export function knownPairAssets(chainId: number): PairAsset[] {
+  const usdg = THIRD_PARTY_ADDRESSES[chainId]?.usdg;
+  return usdg ? [NATIVE_ETH, { address: usdg, symbol: "USDG", decimals: 6 }] : [NATIVE_ETH];
+}
