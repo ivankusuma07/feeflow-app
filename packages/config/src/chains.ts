@@ -51,3 +51,13 @@ export function makeChain(chainId: SupportedChainId, urls: ChainUrls): Chain {
     testnet: chainId !== ROBINHOOD_CHAIN_ID,
   });
 }
+
+/**
+ * Public RPC used when `NEXT_PUBLIC_RPC_URL` is unset. Robinhood Chain's public endpoint was
+ * verified on 25 Nov 2026 (`eth_chainId` = 4663, Pons contracts present; recent state only).
+ * Production should set a paid provider. The testnet has no default: no Pons deployment exists.
+ */
+export const DEFAULT_RPC_URLS: Partial<Record<SupportedChainId, string>> = {
+  [ROBINHOOD_CHAIN_ID]: "https://rpc.mainnet.chain.robinhood.com",
+  [ANVIL_CHAIN_ID]: "http://127.0.0.1:8545",
+};

@@ -3,7 +3,7 @@
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Button } from "@feeflow/ui";
 import { NavLinks } from "./nav-links";
 
@@ -15,9 +15,12 @@ interface NavItem {
 export function MobileMenu({
   items,
   xUrl,
+  actions,
 }: {
   items: readonly NavItem[];
   xUrl?: string | undefined;
+  /** Replaces the default logged-out buttons (app routes pass the auth-aware actions). */
+  actions?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -67,12 +70,16 @@ export function MobileMenu({
             )}
           </nav>
           <div className="container-page flex flex-wrap gap-2.5 pb-5 md:pt-4">
-            <Button asChild variant="secondary" className="flex-1">
-              <Link href="/dashboard">Connect wallet</Link>
-            </Button>
-            <Button asChild className="flex-1">
-              <Link href="/dashboard">Open app</Link>
-            </Button>
+            {actions ?? (
+              <>
+                <Button asChild variant="secondary" className="flex-1">
+                  <Link href="/dashboard">Connect wallet</Link>
+                </Button>
+                <Button asChild className="flex-1">
+                  <Link href="/dashboard">Open app</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}
