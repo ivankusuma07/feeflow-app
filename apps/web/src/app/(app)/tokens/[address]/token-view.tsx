@@ -191,7 +191,7 @@ function Token({ t }: { t: TokenDetail }) {
           <p className="mt-2 mb-0 text-xs text-muted">
             Read from <span className="font-mono">pendingFees + pendingCreatorTax</span>.
           </p>
-          {!t.graduated && pons && curve && !exited ? (
+          {!t.graduated && pons?.ponsSweepOperator && curve && !exited ? (
             <>
               <TxButton
                 className="mt-4"
@@ -203,7 +203,7 @@ function Token({ t }: { t: TokenDetail }) {
                 successToast="Swept"
                 run={() =>
                   writeContract({
-                    address: pons.ponsSweepOperator,
+                    address: pons.ponsSweepOperator!,
                     abi: ponsSweepOperatorAbi,
                     functionName: "sweepCurve",
                     args: [curve],

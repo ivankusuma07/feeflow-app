@@ -39,6 +39,8 @@ export const publicEnvSchema = z.object({
   NEXT_PUBLIC_API_URL: optionalUrl,
   NEXT_PUBLIC_PRIVY_APP_ID: optionalString,
   NEXT_PUBLIC_DATA_SOURCE: z.enum(DATA_SOURCES).default("indexer"),
+  /** "1" enables the dev-only mock X login with the indexer source (Anvil e2e). Never in production. */
+  NEXT_PUBLIC_MOCK_AUTH: z.enum(["0", "1"]).optional(),
   NEXT_PUBLIC_DEX_SWAP_URL: optionalUrl,
   NEXT_PUBLIC_X_URL: optionalUrl,
   NEXT_PUBLIC_DOCS_URL: optionalUrl,
@@ -81,6 +83,9 @@ export function parsePublicEnv(raw: Record<string, string | undefined>): PublicC
   const env = result.data;
   if (env.NODE_ENV === "production" && env.NEXT_PUBLIC_DATA_SOURCE === "mock") {
     throw new ConfigError("NEXT_PUBLIC_DATA_SOURCE=mock is not allowed when NODE_ENV=production.");
+  }
+  if (env.NODE_ENV === "production" && env.NEXT_PUBLIC_MOCK_AUTH === "1") {
+    throw new ConfigError("NEXT_PUBLIC_MOCK_AUTH=1 is not allowed when NODE_ENV=production.");
   }
   return {
     env,

@@ -40,7 +40,8 @@ function makeQueryClient() {
  * Client providers for the app routes only (the landing page ships without them).
  * With a Privy app id: Privy → React Query → Privy's wagmi adapter → auth bridge.
  * Without one (local dev, CI builds): plain wagmi and a disabled auth state, so pages still render.
- * Without one and with the mock data source (dev and Playwright only; rejected in production):
+ * Without one and with the mock data source or NEXT_PUBLIC_MOCK_AUTH=1 (dev and Playwright only;
+ * both rejected in production):
  * the mock login and wagmi's mock wallet connector, so logged-in pages can be developed.
  */
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -88,7 +89,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
 const privyWagmiConfig = createPrivyWagmiConfig({ chains: [appChain], transports, ssr: true });
 const plainWagmiConfig = createConfig({ chains: [appChain], transports, ssr: true });
 
-const mockAuthEnabled = env.NEXT_PUBLIC_DATA_SOURCE === "mock";
+// Dev and Playwright only: parsePublicEnv rejects both switches in production builds.
+const mockAuthEnabled = env.NEXT_PUBLIC_DATA_SOURCE === "mock" || env.NEXT_PUBLIC_MOCK_AUTH === "1";
 const mockWagmiConfig = createConfig({
   chains: [appChain],
   transports,
