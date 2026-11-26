@@ -181,3 +181,91 @@ function checkExpiry(expiry: bigint, now: () => number) {
     throw new UserFacingError("The FeeFlow approval service sent an invalid reply. Try again.");
   }
 }
+
+// ---------------------------------------------------------------- exit
+
+/**
+ * `POST /api/attest/exit`: like claim, the service verifies the Privy identity token and reads
+ * the X id itself, then signs `Exit{xUserId, token, newRecipient, nonce, expiry}`.
+ */
+export interface ExitAttestation {
+  xUserId: bigint;
+  token: Address;
+  newRecipient: Address;
+  nonce: bigint;
+  expiry: bigint;
+  attestation: Hex;
+}
+
+const exitSchema = z.object({
+  xUserId: uint,
+  token: z.string().refine((v) => isAddress(v), "invalid address"),
+  newRecipient: z.string().refine((v) => isAddress(v), "invalid address"),
+  nonce: uint,
+  expiry: uint,
+  attestation: z.string().refine((v) => isHex(v) && v.length > 2, "invalid signature"),
+});
+
+export interface RequestExitAttestationArgs {
+  apiUrl: string | undefined;
+  identityToken: string;
+  xUserId: string;
+  token: Address;
+  newRecipient: Address;
+  fetchImpl?: typeof fetch;
+  now?: () => number;
+}
+
+export async function requestExitAttestation({
+  apiUrl,
+  identityToken,
+  xUserId,
+  token,
+  newRecipient,
+  fetchImpl = fetch,
+  now = Date.now,
+}: RequestExitAttestationArgs): Promise<ExitAttestation> {
+  if (!apiUrl) {
+    throw new UserFacingError("The FeeFlow approval service is not set up yet.", false);
+  }
+  let res: Response;
+  try {
+    res = await fetchImpl(`${apiUrl.replace(/\/$/, "")}/api/attest/exit`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${identityToken}` },
+      body: JSON.stringify({ token, newRecipient }),
+    });
+  } catch {
+    throw new UserFacingError("The FeeFlow approval service could not be reached. Try again.");
+  }
+  if (res.status === 401 || res.status === 403) {
+    throw new UserFacingError("Your X login has expired. Log in with X again, then try again.");
+  }
+  if (res.status === 429) {
+    throw new UserFacingError("Too many requests. Wait a minute, then try again.");
+  }
+  if (!res.ok) {
+    throw new UserFacingError("The FeeFlow approval service is unavailable. Try again.");
+  }
+  const parsed = exitSchema.safeParse(await res.json().catch(() => null));
+  if (!parsed.success) {
+    throw new UserFacingError("The FeeFlow approval service sent an invalid reply. Try again.");
+  }
+  const result: ExitAttestation = {
+    xUserId: BigInt(parsed.data.xUserId),
+    token: getAddress(parsed.data.token),
+    newRecipient: getAddress(parsed.data.newRecipient),
+    nonce: BigInt(parsed.data.nonce),
+    expiry: BigInt(parsed.data.expiry),
+    attestation: parsed.data.attestation as Hex,
+  };
+  if (
+    result.xUserId.toString() !== xUserId ||
+    result.token !== getAddress(token) ||
+    result.newRecipient !== getAddress(newRecipient)
+  ) {
+    throw new UserFacingError("The approval did not match this request. Try again.");
+  }
+  checkExpiry(result.expiry, now);
+  return result;
+}

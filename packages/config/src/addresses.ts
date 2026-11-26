@@ -6,6 +6,8 @@ export interface ThirdPartyAddresses {
   ponsFactory: Address;
   /** Current escrow. Resolve per token: older tokens may use an older escrow. */
   ponsEscrow: Address;
+  /** Public sweep operator: the only caller curves accept for sweeps (ADR-001 decision 4). */
+  ponsSweepOperator: Address;
   usdg: Address;
 }
 
@@ -18,6 +20,7 @@ export const THIRD_PARTY_ADDRESSES: Partial<Record<number, ThirdPartyAddresses>>
   [ROBINHOOD_CHAIN_ID]: {
     ponsFactory: "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e",
     ponsEscrow: "0xd3AFEB2a57f70eF218Aa82451c51B2fb0416Ac9e",
+    ponsSweepOperator: "0xa1018c1D9655292A2dE0F7dEa9a0F848EaA8cA83",
     usdg: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
   },
 };

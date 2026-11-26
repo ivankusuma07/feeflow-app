@@ -1,6 +1,10 @@
 import { decodeError } from "@feeflow/sdk";
 import { describe, expect, it } from "vitest";
-import { requestClaimAttestation, requestRegisterAttestation } from "./attest";
+import {
+  requestClaimAttestation,
+  requestExitAttestation,
+  requestRegisterAttestation,
+} from "./attest";
 
 const TO = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" as const;
 const NOW = 1_800_000_000_000;
@@ -135,6 +139,44 @@ describe("requestRegisterAttestation", () => {
     ).toBe("The approval did not match this token and X account. Try again.");
     expect(await message(register({}, 404))).toBe(
       "That X account could not be found. Check the handle.",
+    );
+  });
+});
+
+describe("requestExitAttestation", () => {
+  const TOKEN = "0x00000000000000000000000000000000000000a1";
+  const NEW = "0x00000000000000000000000000000000000000b2";
+  const exit = (body: Record<string, unknown>, status = 200) =>
+    requestExitAttestation({
+      apiUrl: "https://api.example",
+      identityToken: "id-token",
+      xUserId: "1000000000",
+      token: TOKEN,
+      newRecipient: NEW,
+      fetchImpl: reply(status, body) as typeof fetch,
+      now: () => NOW,
+    });
+  const good = {
+    xUserId: "1000000000",
+    token: TOKEN,
+    newRecipient: NEW,
+    nonce: "9",
+    expiry: NOW / 1000 + 300,
+    attestation: SIG,
+  };
+
+  it("returns a checked Exit attestation", async () => {
+    expect((await exit(good)).nonce).toBe(9n);
+  });
+
+  it("refuses a different account, token or recipient", async () => {
+    for (const bad of [{ xUserId: "2" }, { token: NEW }, { newRecipient: TOKEN }]) {
+      expect(await message(exit({ ...good, ...bad }))).toBe(
+        "The approval did not match this request. Try again.",
+      );
+    }
+    expect(await message(exit({}, 401))).toBe(
+      "Your X login has expired. Log in with X again, then try again.",
     );
   });
 });
