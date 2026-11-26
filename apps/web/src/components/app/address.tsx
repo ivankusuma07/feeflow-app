@@ -30,13 +30,9 @@ export function Address({ address, link = true, copy = false, suffix, className 
   return (
     <span className={cn("inline-flex items-center gap-1.5", className)}>
       {url ? (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`${address} on the explorer`}
-        >
+        <a href={url} target="_blank" rel="noopener noreferrer">
           {text}
+          <span className="sr-only"> (on the explorer)</span>
         </a>
       ) : (
         text
