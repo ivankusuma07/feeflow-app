@@ -1,9 +1,12 @@
 import * as React from "react";
 import { cn } from "./cn";
 
-/** Horizontal-scroll wrapper so wide tables never cause page-level horizontal scroll. */
+/**
+ * Horizontal-scroll wrapper so wide tables never cause page-level horizontal scroll.
+ * Focusable so keyboard users can scroll it (WCAG 2.1.1, axe scrollable-region-focusable).
+ */
 export function TableScroll({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("overflow-x-auto", className)} {...props} />;
+  return <div tabIndex={0} className={cn("overflow-x-auto", className)} {...props} />;
 }
 
 export function Table({ className, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {

@@ -41,6 +41,27 @@ jobs:
       - run: pnpm turbo run build --filter=@feeflow/web
       - run: pnpm --filter @feeflow/web lighthouse
 
+  e2e:
+    name: E2E (Playwright + axe, mock data)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run build --filter=@feeflow/web^...
+      - run: pnpm --filter @feeflow/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @feeflow/web e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7
+
   contracts:
     name: Contracts (forge test, fmt, ABI drift)
     runs-on: ubuntu-latest
