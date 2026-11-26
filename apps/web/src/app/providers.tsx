@@ -10,7 +10,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { http } from "viem";
 import { WagmiProvider, createConfig } from "wagmi";
+import { mock } from "wagmi/connectors";
 import { AuthContext, DISABLED_AUTH } from "@/auth/auth-context";
+import { MOCK_WALLET, MockAuthProvider } from "@/auth/mock-auth";
 import { PrivyAuthBridge } from "@/auth/privy-auth";
 import { DataSourceProvider } from "@/data/context";
 import { appChain, rpcUrl } from "@/lib/chain";
@@ -38,6 +40,8 @@ function makeQueryClient() {
  * Client providers for the app routes only (the landing page ships without them).
  * With a Privy app id: Privy → React Query → Privy's wagmi adapter → auth bridge.
  * Without one (local dev, CI builds): plain wagmi and a disabled auth state, so pages still render.
+ * Without one and with the mock data source (dev and Playwright only; rejected in production):
+ * the mock login and wagmi's mock wallet connector, so logged-in pages can be developed.
  */
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(makeQueryClient);
@@ -49,6 +53,16 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <Toaster />
     </DataSourceProvider>
   );
+
+  if (!appId && mockAuthEnabled) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <WagmiProvider config={mockWagmiConfig}>
+          <MockAuthProvider>{inner}</MockAuthProvider>
+        </WagmiProvider>
+      </QueryClientProvider>
+    );
+  }
 
   if (!appId) {
     return (
@@ -73,3 +87,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
 const privyWagmiConfig = createPrivyWagmiConfig({ chains: [appChain], transports, ssr: true });
 const plainWagmiConfig = createConfig({ chains: [appChain], transports, ssr: true });
+
+const mockAuthEnabled = env.NEXT_PUBLIC_DATA_SOURCE === "mock";
+const mockWagmiConfig = createConfig({
+  chains: [appChain],
+  transports,
+  connectors: [mock({ accounts: [MOCK_WALLET] })],
+  ssr: true,
+});

@@ -147,7 +147,7 @@ export function initials(text: string | null | undefined): string {
   if (!text) return "?";
   const clean = text.replace(/^[@$]/, "").trim();
   const words = clean.split(/[\s_]+/).filter(Boolean);
-  if (words.length >= 2) return `${words[0]![0]}${words[1]![0]}`.toUpperCase();
+  if (words.length >= 2) return `${words[0]![0]}${words.at(-1)![0]}`.toUpperCase();
   return clean.slice(0, 2).toUpperCase();
 }
 
