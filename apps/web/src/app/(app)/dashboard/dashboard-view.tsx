@@ -1,6 +1,5 @@
 "use client";
 
-import { isNative, type PairAsset } from "@feeflow/config";
 import {
   amount,
   displaySymbol,
@@ -11,7 +10,6 @@ import {
   shortHash,
   sumByAsset,
   type AccountView,
-  type Amount as AmountValue,
 } from "@feeflow/sdk";
 import { Button, Card, CardHeader, CardTitle, Monogram, ProgressBar, cn } from "@feeflow/ui";
 import { CircleCheck, Wallet } from "lucide-react";
@@ -24,23 +22,12 @@ import { ErrorState, Skeleton } from "@/components/app/states";
 import { XIcon } from "@/components/x-icon";
 import { notLiveNote } from "@/content/copy";
 import { useAccountView } from "@/data/context";
+import { byAsset, nonZero } from "@/lib/assets";
 import { APP_CHAIN_ID, explorerTxUrl } from "@/lib/chain";
 
 export function DashboardView() {
   return <AuthGate>{(account) => <Dashboard account={account} />}</AuthGate>;
 }
-
-/** USDG first (the design's headline figure), then ETH, then other pair assets by symbol. */
-function assetRank(a: PairAsset): number {
-  const symbol = displaySymbol(a, APP_CHAIN_ID);
-  if (symbol === "USDG") return 0;
-  if (isNative(a)) return 1;
-  return 2;
-}
-const byAsset = (x: AmountValue, y: AmountValue) =>
-  assetRank(x.asset) - assetRank(y.asset) || x.asset.symbol.localeCompare(y.asset.symbol);
-
-const nonZero = (a: AmountValue) => BigInt(a.raw) > 0n;
 
 function Dashboard({ account }: { account: XAccount }) {
   const query = useAccountView(account.userId);
