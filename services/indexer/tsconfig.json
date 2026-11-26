@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "noEmit": true, "declaration": false, "types": ["node"] },
+  "include": [
+    "ponder-env.d.ts",
+    "ponder.config.ts",
+    "ponder.schema.ts",
+    "src",
+    "scripts",
+    "test",
+    "vitest.*.ts"
+  ]
+}

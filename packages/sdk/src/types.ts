@@ -97,7 +97,8 @@ export interface FeePolicyView {
 
 export interface TokenDetail extends TokenSummary {
   buckets: {
-    unswept: Amount;
+    /** Fees on the Pons curve or hook, not yet swept. Null while no verified getter is wired. */
+    unswept: Amount | null;
     escrow: Amount;
     credited: Amount;
     /** Credited batches already past the 30-day window, still claimable until released. */
