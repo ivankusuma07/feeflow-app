@@ -112,12 +112,17 @@ export const apiEnvSchema = z.object({
   CONTRACT_ADDRESS: requiredAddress,
   PRIVY_APP_ID: z.string().min(1),
   PRIVY_APP_SECRET: z.string().min(1),
-  X_API_BEARER: z.string().min(1),
+  /** Unset: X lookups and register attestations answer 503 (not configured). */
+  X_API_BEARER: optionalString,
   /** Local dev only; production signs through KMS (ATTESTER_KMS_KEY_ID). */
   ATTESTER_KEY: hexKey.optional(),
   ATTESTER_KMS_KEY_ID: optionalString,
+  /** Comma-separated allowed origins (the Vercel domain). */
   CORS_ORIGIN: z.string().min(1),
-  DATABASE_URL: requiredUrl,
+  /** Reserved for the Postgres-backed X cache; the first version caches in memory. */
+  DATABASE_URL: optionalUrl,
+  /** Number of reverse proxies in front (Caddy = 1): picks the client IP from X-Forwarded-For. */
+  TRUSTED_PROXIES: z.coerce.number().int().min(0).max(3).default(0),
   ATTESTATION_TTL_SECONDS: z.coerce.number().int().min(30).max(600).default(300),
 });
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
