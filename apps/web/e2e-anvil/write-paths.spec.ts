@@ -15,7 +15,7 @@ import {
 } from "./chain";
 import { shortAddress } from "@feeflow/sdk";
 import { expectAccessible } from "../e2e/fixtures";
-import { waitIndexed } from "./indexer";
+import { waitCredited, waitIndexed } from "./indexer";
 import { installStubs } from "./stubs";
 
 /**
@@ -109,6 +109,7 @@ test("claim: attestation, one transaction, receipt summary", async ({ page }) =>
   const before = await usdgBalance(CREATOR);
 
   await waitIndexed();
+  await waitCredited(ADDR.demoUsdgToken, parseUnits("148.5", 6));
   await installStubs(page);
   await page.goto("/claim");
   await connectWallet(page);
@@ -143,6 +144,13 @@ test("live pages: every read page shows the indexed chain state", async ({ page 
   await expect(
     main.getByText(shortAddress(ADDR.demoUsdgToken.toLowerCase())).first(),
   ).toBeVisible();
+  await expectAccessible(page);
+
+  await page.goto("/explore");
+  const card = main.locator("article").filter({
+    hasText: shortAddress(ADDR.demoUsdgToken.toLowerCase()),
+  });
+  await expect(card.first()).toContainText("148.50");
   await expectAccessible(page);
 
   await page.goto(`/tokens/${ADDR.demoUsdgToken}`);

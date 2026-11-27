@@ -67,3 +67,18 @@ test.describe("with mock data and the mock login", () => {
     await expect(page.getByRole("heading", { name: "All routed tokens" })).toBeInViewport();
   });
 });
+
+test("explore: filter, rank by amount paid, open a token", async ({ page }) => {
+  await page.goto("/explore");
+  const main = page.locator("#main");
+  await expect(main.getByRole("heading", { name: "All tokens" })).toBeVisible();
+  // "Most paid" needs one asset, so it selects USDG.
+  await main.getByRole("button", { name: "Most paid" }).click();
+  await expect(main.getByRole("button", { name: "USDG" })).toHaveAttribute("aria-pressed", "true");
+  const cards = main.locator("article h3 a");
+  await expect(cards.first()).toHaveText("Example Token E");
+  await main.getByLabel("Filter by name, symbol or address").fill("token a");
+  await expect(cards).toHaveCount(1);
+  await cards.first().click();
+  await expect(page).toHaveURL(/\/tokens\/0x[0-9a-f]{40}$/);
+});

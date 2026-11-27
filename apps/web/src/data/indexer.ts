@@ -8,7 +8,7 @@ import type {
   TokenSummary,
   Totals,
 } from "@feeflow/sdk";
-import { DataSourceError, type DataSource } from "./types";
+import { DataSourceError, type DataSource, type TokenPage } from "./types";
 
 /**
  * REST adapter over the indexer API. Paths follow the brief (§Indexer + API); Stage 4
@@ -18,6 +18,7 @@ import { DataSourceError, type DataSource } from "./types";
  *   GET /api/totals                                  Totals
  *   GET /api/claims/recent?limit=                    ClaimRecord[]
  *   GET /api/tokens/top?limit=                       TokenSummary[]
+ *   GET /api/tokens?sort=&asset=&q=&limit=&offset=   { tokens: TokenSummary[], hasMore }
  *   GET /api/leaderboard?period=&asset=&limit=       LeaderboardEntry[]
  *   GET /api/accounts/:xUserId                       AccountView        (404 → null)
  *   GET /api/tokens/:address                         TokenDetail        (404 → null)
@@ -54,6 +55,16 @@ export function createIndexerDataSource(
     getTotals: () => must<Totals>("/api/totals"),
     getRecentClaims: (limit) => must<ClaimRecord[]>(`/api/claims/recent?${q({ limit })}`),
     getTopTokens: (limit) => must<TokenSummary[]>(`/api/tokens/top?${q({ limit })}`),
+    getTokens: ({ sort, asset, q: text, limit, offset }) =>
+      must<TokenPage>(
+        `/api/tokens?${q({
+          sort,
+          limit,
+          offset,
+          ...(asset ? { asset } : {}),
+          ...(text ? { q: text } : {}),
+        })}`,
+      ),
     getLeaderboard: (period: LeaderboardPeriod, asset, limit) =>
       must<LeaderboardEntry[]>(`/api/leaderboard?${q({ period, asset, limit })}`),
     getAccount: (xUserId) =>

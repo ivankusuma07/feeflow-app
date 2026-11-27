@@ -1,4 +1,5 @@
 import {
+  Compass,
   Download,
   FileText,
   LayoutDashboard,
@@ -18,6 +19,7 @@ export interface NavItem {
 /** The sidebar, in order. "Home" matches only "/"; the others also match their sub-paths. */
 export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/", label: "Home", icon: LayoutGrid },
+  { href: "/explore", label: "Explore", icon: Compass },
   { href: "/payments", label: "Payments", icon: Wallet },
   { href: "/claim", label: "Claim fees", icon: Download },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
