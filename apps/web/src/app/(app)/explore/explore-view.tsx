@@ -1,12 +1,13 @@
 "use client";
 
 import { isNative, knownPairAssets, type PairAsset } from "@feeflow/config";
-import { initials, shortAddress, type TokenSummary } from "@feeflow/sdk";
+import { shortAddress, type TokenSummary } from "@feeflow/sdk";
 import { Badge, Button, Card, Segmented, cn } from "@feeflow/ui";
 import { Check, Coins, Copy, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { Amount } from "@/components/app/amount";
+import { TokenLogo } from "@/components/app/token-logo";
 import { Avatar } from "@/components/app/avatar";
 import { EmptyState, ErrorState, Skeleton } from "@/components/app/states";
 import { notLiveNote } from "@/content/copy";
@@ -312,28 +313,9 @@ function CopyAddress({ address }: { address: string }) {
   );
 }
 
-/** Token art: no verified image source yet (PONS_TOKEN_IMAGE_SOURCE), so a monogram tile. */
+/** Token art: the Pons logo, or the initials tile without one. */
 function TokenTile({ token: t, size }: { token: TokenSummary; size: "sm" | "lg" }) {
-  if (size === "sm") {
-    return (
-      <span
-        aria-hidden
-        className="inline-flex size-12 flex-none items-center justify-center rounded-[10px] bg-subtle font-mono text-sm font-medium"
-      >
-        {initials(t.name)}
-      </span>
-    );
-  }
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex aspect-square w-full items-center justify-center rounded-[10px] bg-subtle font-mono text-4xl font-medium text-ink/80",
-      )}
-    >
-      {initials(t.name)}
-    </span>
-  );
+  return size === "sm" ? <TokenLogo token={t} size={48} /> : <TokenLogo token={t} />;
 }
 
 // ---------------------------------------------------------------- search

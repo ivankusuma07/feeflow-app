@@ -12,3 +12,10 @@ export const erc20MetaAbi = parseAbi([
   "function symbol() view returns (string)",
   "function decimals() view returns (uint8)",
 ]);
+
+/**
+ * Pons token logo, set from `launchToken(params.logo)`. Verified 27 Nov 2026 on Robinhood Chain
+ * (4663): token 0x5Ee3…808f returns the `ipfs://bafkrei…` value passed to its launch. Untrusted
+ * display data; only clean `ipfs://` references are kept (see `ipfsImageUrl`).
+ */
+export const ponsTokenAbi = parseAbi(["function logo() view returns (string)"]);

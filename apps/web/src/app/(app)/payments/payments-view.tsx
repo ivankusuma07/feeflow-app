@@ -4,16 +4,16 @@ import {
   amount,
   formatRaw,
   formatRelative,
-  initials,
   type AssetTotals,
   type ClaimRecord,
   type TokenSummary,
   type XAccount,
 } from "@feeflow/sdk";
-import { Card, CardTitle, LiveDot, Monogram, Table, TableScroll, Td, Th, cn } from "@feeflow/ui";
+import { Card, CardTitle, LiveDot, Table, TableScroll, Td, Th, cn } from "@feeflow/ui";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Amount } from "@/components/app/amount";
+import { TokenLogo } from "@/components/app/token-logo";
 import { Avatar } from "@/components/app/avatar";
 import { ErrorState, Skeleton } from "@/components/app/states";
 import { StatCard } from "@/components/stat-card";
@@ -124,7 +124,7 @@ function KeeperLine({
 function TokenAvatarStack({ t }: { t: TokenSummary }) {
   return (
     <span className="relative inline-flex">
-      <Monogram text={initials(t.name)} size={44} />
+      <TokenLogo token={t} size={44} />
       <Avatar
         src={t.recipient.avatarUrl}
         label={handleOf(t.recipient)}
@@ -382,7 +382,7 @@ function AllTokens({ query }: { query: Q<TokenSummary[]> }) {
                           href={`/tokens/${t.address}`}
                           className="inline-flex items-center gap-2.5 no-underline"
                         >
-                          <Monogram text={initials(t.name)} size={32} />
+                          <TokenLogo token={t} size={32} />
                           <span>
                             <strong>{t.name}</strong>{" "}
                             <span className="font-mono text-xs text-muted">${t.symbol}</span>

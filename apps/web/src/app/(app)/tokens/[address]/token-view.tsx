@@ -7,7 +7,6 @@ import {
   formatDate,
   formatRaw,
   formatRelative,
-  initials,
   shortAddress,
   shortHash,
   UserFacingError,
@@ -22,7 +21,6 @@ import {
   Dialog,
   DialogContent,
   DialogTrigger,
-  Monogram,
   Note,
   Table,
   TableScroll,
@@ -38,6 +36,7 @@ import { requestExitAttestation } from "@/api/attest";
 import { useAuth } from "@/auth/auth-context";
 import { Address as AddressLink } from "@/components/app/address";
 import { Amount } from "@/components/app/amount";
+import { TokenLogo } from "@/components/app/token-logo";
 import { Avatar } from "@/components/app/avatar";
 import { EmptyState, ErrorState, Skeleton } from "@/components/app/states";
 import { notLiveNote } from "@/content/copy";
@@ -131,7 +130,7 @@ function Token({ t }: { t: TokenDetail }) {
     <>
       {/* ---- header */}
       <div className="flex flex-wrap items-center gap-4">
-        <Monogram text={initials(t.name)} size={56} />
+        <TokenLogo token={t} size={56} />
         <div className="min-w-0">
           <h1 className="m-0 text-3xl font-semibold tracking-tight sm:text-4xl">
             {t.name} <span className="font-mono text-xl font-normal text-muted">${t.symbol}</span>

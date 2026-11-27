@@ -37,6 +37,7 @@ const tokenRow = (over: Partial<TokenRow> = {}): TokenRow => ({
   asset: USDG,
   name: "Alpha",
   symbol: "ALP",
+  logo: null,
   curve: null,
   routedAt: NOW - 40 * DAY,
   routedTx: "0x01",
@@ -76,6 +77,17 @@ const ev = (over: Partial<EventRow>): EventRow => {
 };
 
 describe("tokenSummary", () => {
+  it("serves the Pons logo through the IPFS gateway, and nothing else", () => {
+    const cid = "bafkreifqy3iesc5utguhgfj6cvblu5azogmf56ogbm5d7zazae732w2lwi";
+    expect(tokenSummary(l, tokenRow({ logo: `ipfs://${cid}` }), undefined).imageUrl).toBe(
+      `https://gateway.pinata.cloud/ipfs/${cid}`,
+    );
+    expect(
+      tokenSummary(l, tokenRow({ logo: "https://x.example/a.png" }), undefined).imageUrl,
+    ).toBeNull();
+    expect(tokenSummary(l, tokenRow(), undefined).imageUrl).toBeNull();
+  });
+
   it("maps a routed token with its snapshot and recipient", () => {
     const s = tokenSummary(l, tokenRow(), {
       token: TOKEN_A,

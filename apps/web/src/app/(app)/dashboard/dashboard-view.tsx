@@ -6,16 +6,16 @@ import {
   formatDate,
   formatRaw,
   formatRelative,
-  initials,
   shortHash,
   sumByAsset,
   type AccountView,
 } from "@feeflow/sdk";
-import { Button, Card, CardHeader, CardTitle, Monogram, ProgressBar, cn } from "@feeflow/ui";
+import { Button, Card, CardHeader, CardTitle, ProgressBar, cn } from "@feeflow/ui";
 import { CircleCheck, Wallet } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { XAccount } from "@/auth/auth-context";
+import { TokenLogo } from "@/components/app/token-logo";
 import { Amount } from "@/components/app/amount";
 import { AuthGate } from "@/components/app/auth-gate";
 import { ErrorState, Skeleton } from "@/components/app/states";
@@ -153,7 +153,7 @@ function LinkedTokens({
                 href={`/tokens/${t.address}`}
                 className="flex h-full flex-col gap-1.5 rounded-[var(--radius-tile)] border border-line p-4 no-underline hover:border-line-strong"
               >
-                <Monogram text={initials(t.name)} />
+                <TokenLogo token={t} size={44} />
                 <span className="mt-2 font-semibold">{t.name}</span>
                 <span className="font-mono text-xs text-muted">
                   ${t.symbol} · {displaySymbol(t.pairAsset, APP_CHAIN_ID)} pair

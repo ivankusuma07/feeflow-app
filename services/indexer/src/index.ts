@@ -1,6 +1,6 @@
 import { feeFlowAbi, ponsFactoryAbi, ponsFeeEscrowAbi } from "@feeflow/abi";
 import { NATIVE_ASSET_ADDRESS } from "@feeflow/config";
-import { shortAddress } from "@feeflow/sdk";
+import { ipfsImageUrl, shortAddress } from "@feeflow/sdk";
 import { and, asc, eq } from "ponder";
 import { ponder, type Context } from "ponder:registry";
 import {
@@ -13,7 +13,7 @@ import {
   tokenEvent,
 } from "ponder:schema";
 import type { Address, Hex } from "viem";
-import { erc20MetaAbi, ponsCurveAbi } from "./abis";
+import { erc20MetaAbi, ponsCurveAbi, ponsTokenAbi } from "./abis";
 
 type Ctx = Context;
 const lower = (a: string) => a.toLowerCase() as Address;
@@ -114,7 +114,7 @@ ponder.on("FeeFlow:TokenRegistered", async ({ event, context }) => {
     address: ff.address,
     functionName: "FACTORY",
   });
-  const [name, symbol, launched, policy] = await Promise.all([
+  const [name, symbol, logo, launched, policy] = await Promise.all([
     tryRead(() =>
       context.client.readContract({
         retryEmptyResponse: false,
@@ -129,6 +129,14 @@ ponder.on("FeeFlow:TokenRegistered", async ({ event, context }) => {
         abi: erc20MetaAbi,
         address: tokenAddr,
         functionName: "symbol",
+      }),
+    ),
+    tryRead(() =>
+      context.client.readContract({
+        retryEmptyResponse: false,
+        abi: ponsTokenAbi,
+        address: tokenAddr,
+        functionName: "logo",
       }),
     ),
     tryRead(() =>
@@ -160,6 +168,7 @@ ponder.on("FeeFlow:TokenRegistered", async ({ event, context }) => {
     asset: pairAsset,
     name: name || shortAddress(address),
     symbol: symbol || shortAddress(address),
+    logo: ipfsImageUrl(logo) ? logo!.trim() : null,
     curve: launched?.exists ? lower(launched.curve) : null,
     routedAt: r.timestamp,
     routedTx: r.txHash,
