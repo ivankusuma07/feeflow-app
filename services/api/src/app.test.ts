@@ -2,7 +2,7 @@ import { claimTypes, exitTypes, feeFlowDomain, registerTypes } from "@feeflow/sd
 import { getAddress, verifyTypedData, type Address, type Hex } from "viem";
 import { describe, expect, it, vi } from "vitest";
 import { createApp, type AppDeps } from "./app";
-import { loadAttester, localAttester } from "./attester";
+import { localAttester } from "./attester";
 import type { IdentityVerifier } from "./identity";
 import { createRateLimiter } from "./rate-limit";
 import type { XClient, XUser } from "./x-client";
@@ -243,18 +243,5 @@ describe("CORS and limits", () => {
     expect((await get("spoofed, 203.0.113.5")).status).toBe(200);
     expect((await get("other-spoof, 203.0.113.5")).status).toBe(429);
     expect((await get("203.0.113.6")).status).toBe(200);
-  });
-});
-
-describe("loadAttester", () => {
-  it("refuses a raw key in production and an unimplemented KMS id", () => {
-    const key = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d" as const;
-    expect(() => loadAttester({ nodeEnv: "production", key, kmsKeyId: undefined })).toThrow(
-      /refused in production/,
-    );
-    expect(() => loadAttester({ nodeEnv: "development", key, kmsKeyId: "k" })).toThrow(/KMS/);
-    expect(loadAttester({ nodeEnv: "development", key, kmsKeyId: undefined }).address).toBe(
-      attester.address,
-    );
   });
 });

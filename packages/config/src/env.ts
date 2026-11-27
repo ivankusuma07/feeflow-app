@@ -114,9 +114,14 @@ export const apiEnvSchema = z.object({
   PRIVY_APP_SECRET: z.string().min(1),
   /** Unset: X lookups and register attestations answer 503 (not configured). */
   X_API_BEARER: optionalString,
-  /** Local dev only; production signs through KMS (ATTESTER_KMS_KEY_ID). */
+  /** Local dev only; production signs through the Privy server wallet below. */
   ATTESTER_KEY: hexKey.optional(),
-  ATTESTER_KMS_KEY_ID: optionalString,
+  /** Privy server wallet that holds the attester key (secp256k1, inside Privy). */
+  ATTESTER_PRIVY_WALLET_ID: optionalString,
+  /** Base64 PKCS#8 P-256 key of the policy-restricted signer. Host secret store only. */
+  ATTESTER_PRIVY_AUTH_KEY: optionalString,
+  /** The attester the contract was deployed with; boot fails if the Privy wallet differs. */
+  ATTESTER_ADDRESS: optionalAddress,
   /** Comma-separated allowed origins (the Vercel domain). */
   CORS_ORIGIN: z.string().min(1),
   /** Reserved for the Postgres-backed X cache; the first version caches in memory. */
@@ -126,6 +131,20 @@ export const apiEnvSchema = z.object({
   ATTESTATION_TTL_SECONDS: z.coerce.number().int().min(30).max(600).default(300),
 });
 export type ApiEnv = z.infer<typeof apiEnvSchema>;
+
+/** The Privy attester settings: all three or none. */
+export function privyAttesterEnv(env: ApiEnv) {
+  const walletId = env.ATTESTER_PRIVY_WALLET_ID;
+  const authorizationKey = env.ATTESTER_PRIVY_AUTH_KEY;
+  const expectedAddress = env.ATTESTER_ADDRESS;
+  if (!walletId && !authorizationKey && !expectedAddress) return undefined;
+  if (!walletId || !authorizationKey || !expectedAddress) {
+    throw new ConfigError(
+      "Invalid api env: ATTESTER_PRIVY_WALLET_ID, ATTESTER_PRIVY_AUTH_KEY and ATTESTER_ADDRESS go together.",
+    );
+  }
+  return { walletId, authorizationKey, expectedAddress };
+}
 
 /** Keeper (services/keeper). Thresholds are in the pair asset's base units. */
 export const keeperEnvSchema = z.object({

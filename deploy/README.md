@@ -20,8 +20,22 @@ containers to the `edge` network. Postgres and the keeper are not reachable from
   src/                      git archive of the repo at the deployed commit
   env/*.env                 from env/*.env.example; root-only (chmod 600), never in git
   env/postgres_password
-/etc/feeflow/attester-sa.json   GCP service account for KMS signing (placed by the owner)
+/opt/feeflow/privy/             Privy attester keys (root-only); owner.key moves off the host after lock
 /opt/edge/sites/feeflow.caddy   from feeflow.caddy
+```
+
+## Attester (Privy server wallet)
+
+The attester key lives in a Privy server wallet. The API holds only `signer.key`, a P-256 key
+that a Privy policy limits to FeeFlow typed data on chain 4663 (and, after `lock`, the deployed
+contract). `owner.key` can change or export the wallet: keep it offline once set up.
+
+```sh
+cd /opt/feeflow
+run() { docker compose run --rm --no-deps -v /opt/feeflow/privy:/privy api node_modules/.bin/tsx scripts/privy-attester.ts "$@"; }
+run create /privy                       # prints walletId and ATTESTER_ADDRESS
+run lock /privy <walletId> <contract>   # after the deploy
+run check /privy <walletId>             # signs a FeeFlow message; plain and other-chain refused
 ```
 
 ## Update

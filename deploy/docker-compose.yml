@@ -57,9 +57,6 @@ services:
     working_dir: /app/services/api
     command: ["node_modules/.bin/tsx", "src/main.ts"]
     env_file: [env/api.env]
-    # Enable once the GCP service-account file is on the host (a missing file would be created
-    # as a directory): GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/attester-sa.json in api.env.
-    # volumes: ["/etc/feeflow/attester-sa.json:/run/secrets/attester-sa.json:ro"]
     healthcheck:
       test:
         [
