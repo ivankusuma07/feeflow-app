@@ -9,6 +9,7 @@ import {
   ensureDeployed,
   escrowBalance,
   ponsRecipient,
+  publicClient,
   tokenInfo,
   usdgBalance,
   X_USER,
@@ -16,7 +17,7 @@ import {
 import { shortAddress } from "@feeflow/sdk";
 import { expectAccessible } from "../e2e/fixtures";
 import { waitCredited, waitIndexed } from "./indexer";
-import { installStubs } from "./stubs";
+import { installStubs, STUB_IMAGE_URI } from "./stubs";
 
 /**
  * Write paths against a local Anvil deployment (brief §Testing): real transactions from wagmi's
@@ -162,4 +163,76 @@ test("live pages: every read page shows the indexed chain state", async ({ page 
     await expect(main.getByText(kind, { exact: true }).first()).toBeVisible();
   }
   await expectAccessible(page);
+});
+
+/** 1×1 transparent PNG. */
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
+
+test("launch: create a token on Pons, buy, then route it from /route", async ({ page }) => {
+  await waitIndexed();
+  await installStubs(page);
+  await page.goto("/launch");
+  await connectWallet(page);
+
+  await page.getByLabel("X account that receives the fees").fill(`@${X_USER.username}`);
+  await page.getByRole("button", { name: "Find" }).click();
+  await expect(page.getByText(`@${X_USER.username} · user id ${X_USER.id}`)).toBeVisible();
+  await page.getByLabel("Name").fill("Ledger Cat");
+  await page.getByLabel("Ticker").fill("lcat");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "cat.png",
+    mimeType: "image/png",
+    buffer: PNG,
+  });
+  await expect(page.getByText("Pinned on IPFS · change image")).toBeVisible();
+  await page.getByLabel("Added creator tax (%)").fill("1");
+  await page.getByLabel("Initial buy in ETH (optional)").fill("0.01");
+  await page.getByLabel(/I agree to the Terms/).check();
+  // Preview: 1% base (launch config 0) + 1% added.
+  await expect(page.getByText("1% base + 1% added = 2%")).toBeVisible();
+  await expectAccessible(page);
+
+  await page.getByRole("button", { name: "Launch $LCAT on Pons" }).click();
+  await expect(page.getByRole("heading", { name: "Token launched" })).toBeVisible();
+  await page.getByRole("button", { name: "Buy 0.01 ETH" }).click();
+  await expect(
+    page.getByRole("heading", { name: /^Initial buy · 0\.01 ETH.*done$/ }),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Continue to routing" }).click();
+  await expect(page).toHaveURL(/\/route\?token=0x[0-9a-fA-F]{40}&handle=/);
+  const token = new URL(page.url()).searchParams.get("token") as `0x${string}`;
+  await expect(page.getByLabel("Token address")).toHaveValue(token);
+  await expect(
+    page.getByText("Launched by the Pons v2 factory · Ledger Cat ($LCAT)"),
+  ).toBeVisible();
+  await expect(page.getByText(`@${X_USER.username} · user id ${X_USER.id}`)).toBeVisible();
+
+  // On chain: logo stored, the buy landed, and the wallet is the recipient until routed.
+  const logo = await publicClient.readContract({
+    address: token,
+    abi: [
+      {
+        type: "function",
+        name: "logo",
+        stateMutability: "view",
+        inputs: [],
+        outputs: [{ type: "string" }],
+      },
+    ],
+    functionName: "logo",
+  });
+  expect(logo).toBe(STUB_IMAGE_URI);
+  expect(await ponsRecipient(token)).toBe(CREATOR);
+
+  await page.getByRole("button", { name: "Sign message" }).click();
+  await expect(page.getByText("Signed", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Register token" }).click();
+  await expect(page.getByText("Token registered")).toBeVisible();
+  await page.getByRole("button", { name: "Set FeeFlow as recipient" }).click();
+  await expect(page.getByText("Routed.", { exact: true })).toBeVisible();
+  expect(await ponsRecipient(token)).toBe((await tokenInfo(token)).sink);
 });

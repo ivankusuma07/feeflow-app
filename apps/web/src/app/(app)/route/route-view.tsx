@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { erc20Abi, getAddress, isAddress, type Address, type Hex } from "viem";
 import {
@@ -52,9 +53,16 @@ export function RouteView() {
   const contract = env.NEXT_PUBLIC_CONTRACT_ADDRESS;
   const factory = THIRD_PARTY_ADDRESSES[APP_CHAIN_ID]?.ponsFactory;
 
-  const [tokenInput, setTokenInput] = useState("");
-  const [handleInput, setHandleInput] = useState("");
-  const [handleQuery, setHandleQuery] = useState<string | null>(null);
+  // /launch hands a new token over as ?token=…&handle=… (both checked like typed input).
+  const params = useSearchParams();
+  const [tokenInput, setTokenInput] = useState(() => params.get("token") ?? "");
+  const [handleInput, setHandleInput] = useState(() => {
+    const h = normalizeHandle(params.get("handle") ?? "");
+    return h ? `@${h}` : "";
+  });
+  const [handleQuery, setHandleQuery] = useState<string | null>(() =>
+    normalizeHandle(params.get("handle") ?? ""),
+  );
   const [signed, setSigned] = useState<RouteSignature | null>(null);
 
   const trimmed = tokenInput.trim();
@@ -529,8 +537,8 @@ export function RouteView() {
           <Card>
             <h2 className="m-0 text-base font-semibold">Launching a new token?</h2>
             <p className="mt-2 mb-0 text-sm leading-normal text-muted">
-              Register first: the sink address is known in advance, so you can set it as{" "}
-              <span className="font-mono">creatorFeeRecipient</span> when you launch on Pons.
+              <Link href="/launch">Launch it on Pons from FeeFlow</Link>, then come back here with
+              its address filled in.
             </p>
           </Card>
         </aside>

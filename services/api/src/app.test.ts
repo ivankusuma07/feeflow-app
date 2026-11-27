@@ -245,3 +245,60 @@ describe("CORS and limits", () => {
     expect((await get("203.0.113.6")).status).toBe(200);
   });
 });
+
+describe("POST /api/ipfs/image", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  const upload = (app: ReturnType<typeof setup>["app"], body: Uint8Array) =>
+    app.request("/api/ipfs/image", {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: body as never,
+    });
+
+  it("pins a sniffed image and returns its URI", async () => {
+    const pin = vi.fn(
+      async () => "ipfs://bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy",
+    );
+    const { app, audit } = setup({ pinner: { pin } });
+    const res = await upload(app, PNG);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      uri: "ipfs://bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy",
+    });
+    expect(pin).toHaveBeenCalledWith(PNG, "image/png");
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "image", bytes: PNG.length }),
+    );
+  });
+
+  it("refuses non-images, empty and oversized bodies, and answers 503 when not configured", async () => {
+    const pin = vi.fn(async () => "ipfs://x");
+    const { app } = setup({ pinner: { pin } });
+    expect((await upload(app, new TextEncoder().encode("<svg/>"))).status).toBe(400);
+    expect((await upload(app, new Uint8Array())).status).toBe(400);
+    const big = new Uint8Array(1024 * 1024 + 1);
+    big.set(PNG);
+    expect((await upload(app, big)).status).toBe(413);
+    expect(pin).not.toHaveBeenCalled();
+    expect((await upload(setup({ pinner: null }).app, PNG)).status).toBe(503);
+  });
+
+  it("limits uploads per IP", async () => {
+    const pin = vi.fn(
+      async () => "ipfs://bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy",
+    );
+    const limits = {
+      perIp: createRateLimiter(100, 60_000, () => NOW),
+      perX: createRateLimiter(100, 60_000, () => NOW),
+      uploads: createRateLimiter(1, 60_000, () => NOW),
+    };
+    const { app } = setup({ pinner: { pin }, limits });
+    expect((await upload(app, PNG)).status).toBe(200);
+    expect((await upload(app, PNG)).status).toBe(429);
+  });
+
+  it("keeps the 4 KB limit on JSON routes", async () => {
+    const { post } = setup();
+    expect((await post("/api/attest/register", { pad: "x".repeat(5000) })).status).toBe(413);
+  });
+});

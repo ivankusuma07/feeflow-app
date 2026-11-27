@@ -4,6 +4,7 @@ import {
   FileText,
   LayoutDashboard,
   LayoutGrid,
+  Rocket,
   Route,
   Trophy,
   Wallet,
@@ -24,6 +25,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/claim", label: "Claim fees", icon: Download },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/launch", label: "Launch a token", icon: Rocket },
   { href: "/route", label: "Route a token", icon: Route },
   { href: "/docs", label: "Docs", icon: FileText },
 ];

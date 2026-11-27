@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {LaunchedToken, FeePolicy} from "../../src/interfaces/IPons.sol";
+import {PonsTokenParams, PonsLaunchConfig} from "../../src/interfaces/IPonsLaunch.sol";
 
 /// @dev USDG stand-in: 6 decimals, pausable like the Paxos token (transfers revert while paused).
 contract MockUSDG is ERC20 {
@@ -101,6 +102,57 @@ contract MockFactory {
         l.exists = true;
     }
 
+    // ---- launch (IPonsLaunch.sol): open to anyone, the verified fee and limits
+
+    uint256 public constant launchFee = 0.0005 ether;
+    uint256 public constant maxCreatorTaxBps = 1000;
+
+    event TokenLaunched(
+        address indexed token,
+        address indexed curve,
+        address indexed deployer,
+        address pairToken,
+        uint256 launchConfigId,
+        uint256 graduationThreshold
+    );
+
+    function canLaunch(address) external pure returns (bool) {
+        return true;
+    }
+
+    function approvedPairTokens(address) external pure returns (bool) {
+        return true;
+    }
+
+    function getLaunchConfig(uint256 id) external pure returns (PonsLaunchConfig memory c) {
+        require(id == 0, "config");
+        c = PonsLaunchConfig(1e27, 100, 1.68e18, 4.2e18, 0, 200, true);
+    }
+
+    function launchToken(PonsTokenParams calldata p, uint256 launchConfigId, address pairToken)
+        external
+        payable
+        returns (address token, address curve)
+    {
+        require(msg.value == launchFee, "LaunchFeeNotPaid");
+        require(launchConfigId == 0 && p.creatorTaxBps <= maxCreatorTaxBps, "params");
+        MockCurve c = new MockCurve(pairToken);
+        curve = address(c);
+        token = address(new MockPonsToken(p.name, p.symbol, p.logo, curve));
+        c.setToken(token);
+        address recipient = p.creatorFeeRecipient == address(0) ? msg.sender : p.creatorFeeRecipient;
+        LaunchedToken storage l = _launched[token];
+        l.token = token;
+        l.curve = curve;
+        l.deployer = msg.sender;
+        l.creatorFeeRecipient = recipient;
+        l.pairToken = pairToken;
+        l.creatorTaxBps = p.creatorTaxBps;
+        l.graduationThreshold = 4.2e18;
+        l.exists = true;
+        emit TokenLaunched(token, curve, msg.sender, pairToken, 0, 4.2e18);
+    }
+
     function getLaunchedToken(address token) external view returns (LaunchedToken memory) {
         return _launched[token];
     }
@@ -143,6 +195,45 @@ contract MockFactory {
 
     function getLaunchFeePolicy(address) external pure returns (FeePolicy memory p) {
         return p;
+    }
+}
+
+/// @dev A launched token with Pons' `logo()` metadata; the whole supply starts on its curve.
+contract MockPonsToken is ERC20 {
+    string public logo;
+
+    constructor(string memory name_, string memory symbol_, string memory logo_, address curve)
+        ERC20(name_, symbol_)
+    {
+        logo = logo_;
+        _mint(curve, 1e27);
+    }
+}
+
+/// @dev Bonding-curve stand-in: a fixed price of 1000 tokens per quote unit, no fees.
+contract MockCurve {
+    address public immutable pairToken;
+    address public token;
+
+    constructor(address pairToken_) {
+        pairToken = pairToken_;
+    }
+
+    function setToken(address token_) external {
+        require(token == address(0), "set");
+        token = token_;
+    }
+
+    function buy(uint256 quoteIn, uint256 minTokensOut, address recipient)
+        external
+        payable
+        returns (uint256 tokensOut)
+    {
+        if (pairToken == address(0)) require(msg.value == quoteIn, "value");
+        else IERC20(pairToken).transferFrom(msg.sender, address(this), quoteIn);
+        tokensOut = quoteIn * 1000;
+        require(tokensOut >= minTokensOut, "slippage");
+        IERC20(token).transfer(recipient, tokensOut);
     }
 }
 

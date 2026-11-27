@@ -5,6 +5,7 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import { createApp } from "./app";
 import { loadAttester } from "./attester";
 import { privyVerifier } from "./identity";
+import { createPinataPinner } from "./ipfs";
 import { createXClient } from "./x-client";
 
 const env = parseServerEnv(apiEnvSchema, process.env, "api");
@@ -28,6 +29,7 @@ const app = createApp({
   attester,
   identity: privyVerifier(env.PRIVY_APP_ID, env.PRIVY_APP_SECRET),
   x: env.X_API_BEARER ? createXClient(env.X_API_BEARER) : null,
+  pinner: env.PINATA_JWT ? createPinataPinner(env.PINATA_JWT) : null,
   corsOrigins: env.CORS_ORIGIN.split(",").map((s) => s.trim()),
   ttlSeconds: env.ATTESTATION_TTL_SECONDS,
   trustedProxies: env.TRUSTED_PROXIES,
@@ -44,5 +46,6 @@ serve({ fetch: app.fetch, port: env.PORT }, (info) => {
     attester: attester.address,
     signer: privyAttester ? "privy" : "local",
     xLookup: Boolean(env.X_API_BEARER),
+    imageUpload: Boolean(env.PINATA_JWT),
   });
 });

@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Test, console2} from "forge-std/Test.sol";
+import {Test, Vm, console2} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FeeFlow} from "../../src/FeeFlow.sol";
 import {IPonsFactory, IPonsFeeEscrow, LaunchedToken, FeePolicy} from "../../src/interfaces/IPons.sol";
 import {IPonsFactoryOverride} from "../../src/interfaces/IPonsOverride.sol";
+import {
+    IPonsLaunchFactory,
+    IPonsCurveBuy,
+    PonsTokenParams,
+    PonsSocials,
+    PonsLaunchConfig
+} from "../../src/interfaces/IPonsLaunch.sol";
 
 /// Curve and sweep-operator functions FeeFlow does not call itself, verified against deployed
 /// bytecode selectors (ADR-001 evidence).
@@ -166,6 +173,66 @@ contract PonsForkTest is Test {
         ff.exitByCreator(tToken, makeAddr("next"));
         assertTrue(ff.tokens(tToken).exited, "exited in FeeFlow");
         assertEq(FACTORY.getLaunchedToken(tToken).creatorFeeRecipient, newRecipient, "recipient untouched");
+    }
+
+    /// The Launch page's flow on live Pons: launch (creator is the recipient), initial buy, then
+    /// route to FeeFlow. Proves the transcribed launch ABI and that the deployer pays no snipe tax.
+    function test_fork_launchThenRoute() public onlyFork {
+        IPonsLaunchFactory lf = IPonsLaunchFactory(address(FACTORY));
+        assertTrue(lf.canLaunch(creator), "launching is open");
+        PonsLaunchConfig memory cfg = lf.getLaunchConfig(0);
+        assertTrue(cfg.enabled, "config 0 enabled");
+        assertTrue(lf.approvedPairTokens(USDG), "USDG pair approved");
+
+        PonsTokenParams memory p = PonsTokenParams({
+            name: "FeeFlow Fork Test",
+            symbol: "FFFT",
+            logo: "ipfs://bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy",
+            description: "Launched by the FeeFlow fork test.",
+            socials: PonsSocials("https://x.com/example", "", "", "", ""),
+            creatorFeeRecipient: address(0),
+            creatorTaxBps: 100,
+            buybackEnabled: false,
+            expectedEconomics: bytes32(0),
+            salt: keccak256("feeflow.fork.launch")
+        });
+        uint256 fee = lf.launchFee();
+        vm.deal(creator, fee + 1 ether);
+        vm.recordLogs();
+        vm.prank(creator);
+        (address token, address curve) = lf.launchToken{value: fee}(p, 0, address(0));
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 topic = keccak256("TokenLaunched(address,address,address,address,uint256,uint256)");
+        bool seen;
+        for (uint256 i; i < logs.length; i++) {
+            if (logs[i].emitter == address(FACTORY) && logs[i].topics[0] == topic) {
+                assertEq(address(uint160(uint256(logs[i].topics[1]))), token, "event token");
+                seen = true;
+            }
+        }
+        assertTrue(seen, "TokenLaunched emitted");
+
+        LaunchedToken memory lt = FACTORY.getLaunchedToken(token);
+        assertEq(lt.creatorFeeRecipient, creator, "zero recipient = launching wallet");
+        assertEq(lt.deployer, creator);
+        assertEq(lt.curve, curve);
+        assertEq(lt.creatorTaxBps, 100);
+        (bool ok, bytes memory ret) = token.staticcall(abi.encodeWithSignature("logo()"));
+        assertTrue(ok);
+        assertEq(abi.decode(ret, (string)), p.logo, "logo stored");
+
+        // Initial buy: the deployer is exempt from the snipe tax.
+        vm.prank(creator);
+        uint256 got = IPonsCurveBuy(curve).buy{value: 0.01 ether}(0.01 ether, 1, creator);
+        assertEq(IERC20(token).balanceOf(creator), got, "bought");
+        assertGt(got, 0);
+
+        tToken = token;
+        tAsset = address(0);
+        tSink = _register(token);
+        vm.prank(creator);
+        FACTORY.transferCreatorFeeRecipient(token, tSink);
+        assertEq(FACTORY.getLaunchedToken(token).creatorFeeRecipient, tSink, "routed");
     }
 
     // State shared by the end-to-end steps (keeps each function under the stack limit).
