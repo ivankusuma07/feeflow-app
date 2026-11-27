@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { splitGross } from "./constants";
-import { ConfigError, parsePublicEnv } from "./env";
+import { apiEnvSchema, ConfigError, parsePublicEnv, parseServerEnv, privyAttesterEnv } from "./env";
 
 describe("parsePublicEnv", () => {
   it("defaults to mainnet and the indexer data source", () => {
@@ -52,5 +52,33 @@ describe("splitGross", () => {
     expect(splitGross(10_000n)).toEqual({ fee: 100n, net: 9_900n });
     expect(splitGross(99n)).toEqual({ fee: 0n, net: 99n });
     expect(splitGross(52_630_000n)).toEqual({ fee: 526_300n, net: 52_103_700n });
+  });
+});
+
+describe("privyAttesterEnv", () => {
+  const base = {
+    CHAIN_ID: "4663",
+    CONTRACT_ADDRESS: "0x00000000000000000000000000000000000000aa",
+    PRIVY_APP_ID: "app",
+    PRIVY_APP_SECRET: "secret",
+    CORS_ORIGIN: "https://example.test",
+  };
+  const parse = (extra: Record<string, string>) =>
+    privyAttesterEnv(parseServerEnv(apiEnvSchema, { ...base, ...extra }, "api"));
+
+  it("is off when nothing is set, and needs all three settings together", () => {
+    expect(parse({})).toBeUndefined();
+    expect(() => parse({ ATTESTER_PRIVY_WALLET_ID: "w" })).toThrow(/go together/);
+    expect(
+      parse({
+        ATTESTER_PRIVY_WALLET_ID: "w",
+        ATTESTER_PRIVY_AUTH_KEY: "k",
+        ATTESTER_ADDRESS: "0x00000000000000000000000000000000000000bb",
+      }),
+    ).toEqual({
+      walletId: "w",
+      authorizationKey: "k",
+      expectedAddress: "0x00000000000000000000000000000000000000bb",
+    });
   });
 });

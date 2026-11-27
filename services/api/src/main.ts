@@ -1,4 +1,5 @@
-import { apiEnvSchema, parseServerEnv } from "@feeflow/config";
+import { apiEnvSchema, parseServerEnv, privyAttesterEnv } from "@feeflow/config";
+import { PrivyClient } from "@privy-io/node";
 import { serve } from "@hono/node-server";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { createApp } from "./app";
@@ -7,10 +8,14 @@ import { privyVerifier } from "./identity";
 import { createXClient } from "./x-client";
 
 const env = parseServerEnv(apiEnvSchema, process.env, "api");
-const attester = loadAttester({
+const privyAttester = privyAttesterEnv(env);
+const attester = await loadAttester({
   nodeEnv: env.NODE_ENV,
   key: env.ATTESTER_KEY,
-  kmsKeyId: env.ATTESTER_KMS_KEY_ID,
+  privy: privyAttester && {
+    client: new PrivyClient({ appId: env.PRIVY_APP_ID, appSecret: env.PRIVY_APP_SECRET }),
+    ...privyAttester,
+  },
 });
 
 /** One JSON line per signature and error, on stdout for the host's log collector. */
@@ -37,6 +42,7 @@ serve({ fetch: app.fetch, port: env.PORT }, (info) => {
     chainId: env.CHAIN_ID,
     contract: env.CONTRACT_ADDRESS,
     attester: attester.address,
+    signer: privyAttester ? "privy" : "local",
     xLookup: Boolean(env.X_API_BEARER),
   });
 });
