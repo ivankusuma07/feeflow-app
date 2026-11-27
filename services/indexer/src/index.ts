@@ -333,12 +333,6 @@ ponder.on("FeeFlow:FeesWithdrawn", async ({ event, context }) => {
  * the Pons escrow for its sink, plus the curve's graduation flag. Runs on live blocks only.
  */
 ponder.on("EscrowSnapshot:block", async ({ event, context }) => {
-  const ff = context.contracts.FeeFlow;
-  const escrow = await context.client.readContract({
-    abi: feeFlowAbi,
-    address: ff.address,
-    functionName: "ESCROW",
-  });
   const routed = await context.db.sql
     .select({
       address: token.address,
@@ -350,6 +344,13 @@ ponder.on("EscrowSnapshot:block", async ({ event, context }) => {
     .from(token)
     .leftJoin(escrowSnapshot, eq(escrowSnapshot.token, token.address))
     .where(eq(token.exited, false));
+  // Nothing routed yet (this also covers blocks before FeeFlow is deployed).
+  if (routed.length === 0) return;
+  const escrow = await context.client.readContract({
+    abi: feeFlowAbi,
+    address: context.contracts.FeeFlow.address,
+    functionName: "ESCROW",
+  });
 
   const blockNumber = Number(event.block.number);
   const timestamp = Number(event.block.timestamp);

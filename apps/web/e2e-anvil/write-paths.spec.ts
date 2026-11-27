@@ -13,11 +13,15 @@ import {
   usdgBalance,
   X_USER,
 } from "./chain";
+import { shortAddress } from "@feeflow/sdk";
+import { expectAccessible } from "../e2e/fixtures";
+import { waitIndexed } from "./indexer";
 import { installStubs } from "./stubs";
 
 /**
  * Write paths against a local Anvil deployment (brief §Testing): real transactions from wagmi's
- * mock connector (Anvil account 0), real EIP-712 attestations from the local attester key.
+ * mock connector (Anvil account 0), real EIP-712 attestations from the local attester key, and
+ * every page reading the real indexer.
  * The steps build on each other, so they run in order on one chain.
  */
 test.describe.configure({ mode: "serial" });
@@ -33,6 +37,7 @@ async function connectWallet(page: Page) {
 }
 
 test("route: sign, register and point Pons fees at the sink", async ({ page }) => {
+  await waitIndexed();
   await installStubs(page);
   await page.goto("/route");
   await connectWallet(page);
@@ -65,9 +70,13 @@ test("collect: escrowed fees move into FeeFlow from the token page", async ({ pa
   const { sink } = await tokenInfo(ADDR.demoUsdgToken);
   await creditEscrow(sink, parseUnits("100", 6));
 
+  await waitIndexed();
   await installStubs(page);
   await page.goto(`/tokens/${ADDR.demoUsdgToken}`);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Demo USDG Token");
+  // The demo token is a bare address in DeployLocal (no ERC-20 code): the indexer names it by address.
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    shortAddress(ADDR.demoUsdgToken.toLowerCase()),
+  );
   await connectWallet(page);
 
   await page.getByRole("button", { name: "Collect into FeeFlow" }).click();
@@ -79,6 +88,7 @@ test("collect: escrowed fees move into FeeFlow from the token page", async ({ pa
 });
 
 test("claim error: the approval service is down, nothing is sent", async ({ page }) => {
+  await waitIndexed();
   await installStubs(page, { claimStatus: 503 });
   await page.goto("/claim");
   await connectWallet(page);
@@ -98,6 +108,7 @@ test("claim: attestation, one transaction, receipt summary", async ({ page }) =>
   await collect(ADDR.demoUsdgToken);
   const before = await usdgBalance(CREATOR);
 
+  await waitIndexed();
   await installStubs(page);
   await page.goto("/claim");
   await connectWallet(page);
@@ -108,4 +119,36 @@ test("claim: attestation, one transaction, receipt summary", async ({ page }) =>
 
   expect(await credited(ADDR.demoUsdgToken)).toBe(0n);
   expect((await usdgBalance(CREATOR)) - before).toBe(parseUnits("148.5", 6));
+});
+
+test("live pages: every read page shows the indexed chain state", async ({ page }) => {
+  // State after the steps above: 150 USDG collected (1.50 fee), 148.50 claimed, nothing waiting.
+  await waitIndexed();
+  await installStubs(page);
+  const main = page.locator("#main");
+
+  await page.goto("/payments");
+  await expect(main.getByText("Total fees collected into FeeFlow")).toBeVisible();
+  await expect(main.getByText("150.00").first()).toBeVisible();
+  await expect(main.getByText("148.50").first()).toBeVisible();
+  await expect(main.getByText("99% of collected USDG")).toBeVisible();
+  await expect(main.getByText(`X user ${X_USER.id}`).first()).toBeVisible();
+  await expectAccessible(page);
+
+  await page.goto("/leaderboard");
+  await expect(page.getByRole("list", { name: "Ranking" })).toContainText("148.50");
+  await expectAccessible(page);
+
+  await page.goto("/dashboard");
+  await expect(
+    main.getByText(shortAddress(ADDR.demoUsdgToken.toLowerCase())).first(),
+  ).toBeVisible();
+  await expectAccessible(page);
+
+  await page.goto(`/tokens/${ADDR.demoUsdgToken}`);
+  // Newest first: the claim, two collects, the routing.
+  for (const kind of ["Claim", "Collect", "Routed"]) {
+    await expect(main.getByText(kind, { exact: true }).first()).toBeVisible();
+  }
+  await expectAccessible(page);
 });
