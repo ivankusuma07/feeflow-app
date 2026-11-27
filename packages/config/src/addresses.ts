@@ -42,3 +42,32 @@ export function knownPairAssets(chainId: number): PairAsset[] {
   const usdg = THIRD_PARTY_ADDRESSES[chainId]?.usdg;
   return usdg ? [NATIVE_ETH, { address: usdg, symbol: "USDG", decimals: 6 }] : [NATIVE_ETH];
 }
+
+export interface FeeFlowDeployment {
+  feeFlow: Address;
+  sinkImplementation: Address;
+  /** Block of the deploy transaction: the indexer's start block. */
+  deployBlock: number;
+  deployTx: `0x${string}`;
+  attester: Address;
+  admin: Address;
+  feeRecipient: Address;
+  attesterTimelockSeconds: number;
+}
+
+/**
+ * FeeFlow deployments, read back on chain after the deploy (docs/deployments.md). Apps read the
+ * live address from env (NEXT_PUBLIC_CONTRACT_ADDRESS / CONTRACT_ADDRESS); this is the record.
+ */
+export const FEEFLOW_DEPLOYMENTS: Partial<Record<number, FeeFlowDeployment>> = {
+  [ROBINHOOD_CHAIN_ID]: {
+    feeFlow: "0xF7b438c70CA4a126cD4Ed0603DFa3761fcE819D2",
+    sinkImplementation: "0x85b6F7cA14B61B5D38db6699Cb0CB77B23764A59",
+    deployBlock: 124082737,
+    deployTx: "0xc679fd784a93496369249fa299a98bf860b239866dfc5ce75e9201b2a13029f5",
+    attester: "0x00f76cb42B0A5433fa6F5291fFeBa73234291b43",
+    admin: "0x9F220f524b978C45b246fde763b460FE3fAfd1bf",
+    feeRecipient: "0x9F220f524b978C45b246fde763b460FE3fAfd1bf",
+    attesterTimelockSeconds: 172800,
+  },
+};

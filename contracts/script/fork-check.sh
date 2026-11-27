@@ -1,6 +1,6 @@
 #!/bin/sh
 # Deploys FeeFlow on a local fork of Robinhood mainnet with the production values and reads them
-# back. Run from contracts/ (e.g. in ghcr.io/foundry-rs/foundry: sh scripscript/fork-check.sh).
+# back. Run from contracts/ (e.g. in ghcr.io/foundry-rs/foundry: sh script/fork-check.sh).
 set -e
 anvil --fork-url https://rpc.mainnet.chain.robinhood.com --auto-impersonate --silent &
 sleep 6

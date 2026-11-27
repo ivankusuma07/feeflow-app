@@ -34,3 +34,4 @@ deploy/env/*.env
 deploy/env/postgres_password
 
 .vercel
+contracts/broadcast
