@@ -1,0 +1,21 @@
+# Upload only what the web build needs (the pnpm workspace manifests stay for the lockfile).
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
+.env
+.env.*
+**/.env.*
+contracts/lib
+contracts/out
+contracts/cache
+contracts/broadcast
+services/indexer/.ponder
+apps/web/test-results
+apps/web/playwright-report
+/FeeFlow_Development Brief.md
+/FeeFlow_Page Designs.html
+/magnific_*.png
+docs/design
