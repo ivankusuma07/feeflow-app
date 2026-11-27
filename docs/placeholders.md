@@ -19,7 +19,7 @@ Status key: **open** = not decided · **re-verify** = known, must be checked on 
 | `CONTRACT_ADDRESS`              | `NEXT_PUBLIC_CONTRACT_ADDRESS`, `CONTRACT_ADDRESS`                                       | all                     | after deploy                                                                                                                                                                                              |
 | `SINK_IMPLEMENTATION_ADDRESS`   | `NEXT_PUBLIC_SINK_IMPLEMENTATION_ADDRESS`                                                | all                     | after deploy                                                                                                                                                                                              |
 | `CONTRACT_DEPLOY_BLOCK`         | `CONTRACT_DEPLOY_BLOCK`                                                                  | indexer                 | after deploy                                                                                                                                                                                              |
-| `FEEFLOW_FEE_RECIPIENT`         | deploy script arg                                                                        | contracts               | open; multisig recommended; **immutable**                                                                                                                                                                 |
+| `FEEFLOW_FEE_RECIPIENT`         | deploy script arg                                                                        | contracts               | set: 0x9F220f524b978C45b246fde763b460FE3fAfd1bf (same wallet as the admin; owner decision 2026-11-27); **immutable**                                                                                      |
 | `ADMIN_MULTISIG`                | deploy script arg                                                                        | contracts               | set: 0x9F220f524b978C45b246fde763b460FE3fAfd1bf (EOA with an EIP-7702 delegation, not a multisig; owner decision 2026-11-27)                                                                              |
 | `ATTESTER_ADDRESS`              | deploy script arg                                                                        | contracts               | open                                                                                                                                                                                                      |
 | `ATTESTER_KEY`                  | `ATTESTER_PRIVY_WALLET_ID` + `ATTESTER_PRIVY_AUTH_KEY` (prod), `ATTESTER_KEY` (dev only) | attestation             | Privy server wallet (GCP KMS replaced: billing unavailable); signer limited by a Privy policy to FeeFlow typed data                                                                                       |
@@ -53,7 +53,7 @@ Status key: **open** = not decided · **re-verify** = known, must be checked on 
 
 - [ ] Confirm the `$FLOW` token image colour (proposal: black mark on white)
 - [x] `ADMIN_MULTISIG` address
-- [ ] `FEEFLOW_FEE_RECIPIENT` address
+- [x] `FEEFLOW_FEE_RECIPIENT` address
 - [x] `ATTESTER_TIMELOCK` length: 48 h
 - [ ] Exact Uniswap Robinhood Chain swap URL for `DEX_SWAP_URL`
 - [ ] Audit before mainnet: yes / no, and which firm
