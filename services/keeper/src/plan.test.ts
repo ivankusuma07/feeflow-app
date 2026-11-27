@@ -7,6 +7,7 @@ import {
   GasBudget,
   nextDelaySeconds,
   releaseCandidates,
+  overrideAlerts,
   sweepCandidates,
   withdrawDue,
   type Thresholds,
@@ -25,6 +26,8 @@ const item = (n: number, over: Partial<WorkItem> = {}): WorkItem => ({
   asset: USDG.toLowerCase() as `0x${string}`,
   curve: a(2000 + n),
   exited: false,
+  ponsOverride: null,
+  redirectedTo: null,
   graduated: false,
   credited: "0",
   oldestCreditedAt: null,
@@ -49,8 +52,25 @@ describe("sweepCandidates", () => {
       item(2, { exited: true }),
       item(3, { graduated: true }),
       item(4, { curve: null }),
+      item(5, { redirectedTo: a(9) }),
     ];
     expect(sweepCandidates(items).map((i) => i.token)).toEqual([a(1)]);
+  });
+});
+
+describe("overrideAlerts", () => {
+  it("alerts on pending and executed Pons overrides, not on exited tokens", () => {
+    const o = { to: a(9), effectiveAt: NOW + 3 * DAY, expiresAt: NOW + 6 * DAY };
+    const items = [
+      item(1),
+      item(2, { ponsOverride: o }),
+      item(3, { redirectedTo: a(9) }),
+      item(4, { exited: true, ponsOverride: o }),
+    ];
+    expect(overrideAlerts(items)).toEqual([
+      { alert: "pons-override-pending", token: a(2), to: a(9), effectiveAt: NOW + 3 * DAY },
+      { alert: "pons-redirected", token: a(3), to: a(9) },
+    ]);
   });
 });
 

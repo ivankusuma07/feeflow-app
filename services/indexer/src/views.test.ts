@@ -43,6 +43,12 @@ const tokenRow = (over: Partial<TokenRow> = {}): TokenRow => ({
   routedTx: "0x01",
   routedBlock: 10,
   exited: false,
+  overrideTo: null,
+  overrideEffectiveAt: null,
+  overrideExpiresAt: null,
+  overrideTx: null,
+  redirectedTo: null,
+  redirectedAt: null,
   credited: 300n,
   collectedGross: 1000n,
   feesTaken: 10n,
@@ -86,6 +92,31 @@ describe("tokenSummary", () => {
       tokenSummary(l, tokenRow({ logo: "https://x.example/a.png" }), undefined).imageUrl,
     ).toBeNull();
     expect(tokenSummary(l, tokenRow(), undefined).imageUrl).toBeNull();
+  });
+
+  it("shows a pending Pons override until it expires, and a redirect as its own status", () => {
+    const P = "0x00000000000000000000000000000000000000ee" as const;
+    const pending = tokenRow({
+      overrideTo: P,
+      overrideEffectiveAt: NOW + 3 * DAY,
+      overrideExpiresAt: NOW + 6 * DAY,
+    });
+    const s = tokenSummary(l, pending, undefined, NOW);
+    expect(s.status).toBe("routed");
+    expect(s.ponsOverride).toEqual({
+      to: P,
+      effectiveAt: NOW + 3 * DAY,
+      expiresAt: NOW + 6 * DAY,
+      txHash: null,
+    });
+    expect(tokenSummary(l, pending, undefined, NOW + 7 * DAY).ponsOverride).toBeNull();
+
+    const redirected = tokenSummary(l, tokenRow({ redirectedTo: P, redirectedAt: NOW }), undefined);
+    expect(redirected).toMatchObject({ status: "redirected", redirectedTo: P, ponsOverride: null });
+
+    // An exit takes precedence and hides both.
+    const exited = tokenSummary(l, { ...pending, exited: true, redirectedTo: P }, undefined, NOW);
+    expect(exited).toMatchObject({ status: "exited", redirectedTo: null, ponsOverride: null });
   });
 
   it("maps a routed token with its snapshot and recipient", () => {

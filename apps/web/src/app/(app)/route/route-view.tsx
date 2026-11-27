@@ -1,11 +1,12 @@
 "use client";
 
-import { feeFlowAbi, ponsFactoryAbi } from "@feeflow/abi";
+import { feeFlowAbi, ponsFactoryAbi, ponsOverrideAbi } from "@feeflow/abi";
 import { knownPairAssets, sameAsset, THIRD_PARTY_ADDRESSES } from "@feeflow/config";
 import {
   decodeError,
   displaySymbol,
   feeFlowDomain,
+  formatDate,
   routeTypes,
   shortAddress,
   UserFacingError,
@@ -31,7 +32,7 @@ import { Avatar } from "@/components/app/avatar";
 import { appChain, APP_CHAIN_ID } from "@/lib/chain";
 import { env } from "@/lib/config";
 import { TxButton } from "@/tx/tx-button";
-import { routeStatus, type RouteStatus } from "./route-status";
+import { liveOverride, routeStatus, type RouteStatus } from "./route-status";
 
 const fieldCls =
   "min-h-11 rounded-[var(--radius-btn)] border border-line-strong bg-surface px-3 text-sm text-ink";
@@ -64,6 +65,15 @@ export function RouteView() {
     address: factory,
     abi: ponsFactoryAbi,
     functionName: "getLaunchedToken",
+    args: token ? [token] : undefined,
+    chainId: appChain.id,
+    query: { enabled: Boolean(token && factory) },
+  });
+  // A pending Pons owner override would replace the sink once it matures (IPonsOverride.sol).
+  const override = useReadContract({
+    address: factory,
+    abi: ponsOverrideAbi,
+    functionName: "pendingCreatorFeeRecipient",
     args: token ? [token] : undefined,
     chainId: appChain.id,
     query: { enabled: Boolean(token && factory) },
@@ -123,6 +133,13 @@ export function RouteView() {
         contract ? (info.data ?? null) : null,
         contract ? (predicted.data ?? null) : null,
         wallet,
+        override.data
+          ? {
+              newRecipient: override.data[0],
+              effectiveAt: override.data[1],
+              expiresAt: override.data[2],
+            }
+          : null,
       )
     : null;
   const deployedReadsPending = Boolean(
@@ -158,12 +175,29 @@ export function RouteView() {
 
   const refetchAll = () => {
     void launched.refetch();
+    void override.refetch();
     void info.refetch();
+  };
+
+  /** Re-read right before each write: a proposal can land after the page loaded. */
+  const refuseIfOverridePending = async () => {
+    const { data } = await override.refetch();
+    if (!data) return;
+    const o = liveOverride(
+      { newRecipient: data[0], effectiveAt: data[1], expiresAt: data[2] },
+      Math.floor(Date.now() / 1000),
+    );
+    if (o)
+      throw new UserFacingError(
+        `Pons has a pending override of this token's fee recipient (effective ${formatDate(o.effectiveAt)}). Routing is paused.`,
+        false,
+      );
   };
 
   const registerRun = async () => {
     if (!contract || !token || !user || !wallet)
       throw new UserFacingError("Complete steps 1–3 first.", false);
+    await refuseIfOverridePending();
     if (!signature || signature.deadline <= BigInt(Math.floor(Date.now() / 1000))) {
       setSigned(null);
       throw new UserFacingError("The routing signature expired. Sign again.", false);
@@ -199,6 +233,7 @@ export function RouteView() {
       : (predicted.data ?? null);
   const transferRun = async () => {
     if (!factory || !token || !sink) throw new UserFacingError("Register the token first.", false);
+    await refuseIfOverridePending();
     return writeContract({
       address: factory,
       abi: ponsFactoryAbi,
@@ -598,6 +633,13 @@ function RecipientItem({ status, token }: { status: RouteStatus; token: Address 
       return (
         <CheckItem ok={false}>
           Connect the wallet that currently receives this token&apos;s creator fees.
+        </CheckItem>
+      );
+    case "pons-override":
+      return (
+        <CheckItem ok={false}>
+          Pons has a pending override of this token&apos;s creator fee recipient (effective{" "}
+          {formatDate(status.effectiveAt)}). It would replace FeeFlow, so routing is paused.
         </CheckItem>
       );
     default:

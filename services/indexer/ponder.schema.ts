@@ -42,6 +42,14 @@ export const token = onchainTable(
     routedTx: t.hex().notNull(),
     routedBlock: t.integer().notNull(),
     exited: t.boolean().notNull(),
+    /** Pending Pons owner override of the creator fee recipient (IPonsOverride.sol). */
+    overrideTo: t.hex(),
+    overrideEffectiveAt: t.integer(),
+    overrideExpiresAt: t.integer(),
+    overrideTx: t.hex(),
+    /** Set when Pons moved the recipient off the sink without a FeeFlow exit. */
+    redirectedTo: t.hex(),
+    redirectedAt: t.integer(),
     /** Currently credited in FeeFlow (claimable or expirable). */
     credited: t.bigint().notNull(),
     collectedGross: t.bigint().notNull(),

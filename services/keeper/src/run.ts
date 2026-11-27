@@ -6,6 +6,7 @@ import {
   chunk,
   collectTargets,
   GasBudget,
+  overrideAlerts,
   releaseCandidates,
   sweepCandidates,
   withdrawDue,
@@ -136,6 +137,7 @@ export async function runOnce(deps: KeeperDeps, state: KeeperState): Promise<Run
 
   const items = await fetchWork(deps.indexerUrl, deps.fetchImpl);
   summary.tokens = items.length;
+  for (const a of overrideAlerts(items)) deps.log({ kind: "alert", ...a });
   const escrowAddr = await pc.readContract({
     address: deps.contract,
     abi: feeFlowAbi,

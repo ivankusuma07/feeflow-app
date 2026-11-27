@@ -1,4 +1,4 @@
-import { feeFlowAbi, ponsFactoryAbi, ponsFeeEscrowAbi } from "@feeflow/abi";
+import { feeFlowAbi, ponsFactoryAbi, ponsFeeEscrowAbi, ponsOverrideAbi } from "@feeflow/abi";
 import { NATIVE_ASSET_ADDRESS } from "@feeflow/config";
 import { ipfsImageUrl, shortAddress } from "@feeflow/sdk";
 import { and, asc, eq } from "ponder";
@@ -114,7 +114,7 @@ ponder.on("FeeFlow:TokenRegistered", async ({ event, context }) => {
     address: ff.address,
     functionName: "FACTORY",
   });
-  const [name, symbol, logo, launched, policy] = await Promise.all([
+  const [name, symbol, logo, launched, policy, pending] = await Promise.all([
     tryRead(() =>
       context.client.readContract({
         retryEmptyResponse: false,
@@ -157,7 +157,19 @@ ponder.on("FeeFlow:TokenRegistered", async ({ event, context }) => {
         args: [tokenAddr],
       }),
     ),
+    // An override proposed before registration would supersede the routing once it matures.
+    tryRead(() =>
+      context.client.readContract({
+        retryEmptyResponse: false,
+        abi: ponsOverrideAbi,
+        address: factory,
+        functionName: "pendingCreatorFeeRecipient",
+        args: [tokenAddr],
+      }),
+    ),
   ]);
+  const [pendingTo, pendingAt, pendingUntil] = pending ?? [null, 0n, 0n];
+  const hasPending = pendingTo !== null && BigInt(pendingTo) !== 0n;
 
   const id = xUserId.toString();
   await context.db.insert(token).values({
@@ -174,6 +186,12 @@ ponder.on("FeeFlow:TokenRegistered", async ({ event, context }) => {
     routedTx: r.txHash,
     routedBlock: r.blockNumber,
     exited: false,
+    overrideTo: hasPending ? lower(pendingTo!) : null,
+    overrideEffectiveAt: hasPending ? Number(pendingAt) : null,
+    overrideExpiresAt: hasPending ? Number(pendingUntil) : null,
+    overrideTx: null,
+    redirectedTo: null,
+    redirectedAt: null,
     credited: 0n,
     collectedGross: 0n,
     feesTaken: 0n,
@@ -327,6 +345,61 @@ ponder.on("FeeFlow:Exited", async ({ event, context }) => {
     counterparty: lower(newRecipient),
     exitRole,
   });
+});
+
+// ------------------------------------------------------------------ Pons owner override
+
+ponder.on("PonsFactory:CreatorFeeRecipientChangeProposed", async ({ event, context }) => {
+  const address = lower(event.args.token);
+  if (!(await context.db.find(token, { address }))) return;
+  await context.db.update(token, { address }).set({
+    overrideTo: lower(event.args.proposedRecipient),
+    overrideEffectiveAt: Number(event.args.effectiveAt),
+    overrideExpiresAt: Number(event.args.expiresAt),
+    overrideTx: event.transaction.hash,
+  });
+});
+
+ponder.on("PonsFactory:CreatorFeeRecipientChangeCancelled", async ({ event, context }) => {
+  const address = lower(event.args.token);
+  if (!(await context.db.find(token, { address }))) return;
+  await context.db.update(token, { address }).set({
+    overrideTo: null,
+    overrideEffectiveAt: null,
+    overrideExpiresAt: null,
+    overrideTx: null,
+  });
+});
+
+/**
+ * Recipient changes. Off the sink without a FeeFlow exit means a Pons override executed (only the
+ * sink, via FeeFlow's exit, can move it otherwise); an exit in the same transaction sets `exited`,
+ * which takes precedence. Back onto the sink clears the redirect.
+ */
+ponder.on("PonsFactory:CreatorFeeRecipientUpdated", async ({ event, context }) => {
+  const address = lower(event.args.token);
+  const t = await context.db.find(token, { address });
+  if (!t) return;
+  const prev = lower(event.args.previousRecipient);
+  const next = lower(event.args.newRecipient);
+  const executed = t.overrideTo !== null && t.overrideTo === next;
+  const clearOverride = executed
+    ? { overrideTo: null, overrideEffectiveAt: null, overrideExpiresAt: null, overrideTx: null }
+    : {};
+  if (next === t.sink) {
+    await context.db
+      .update(token, { address })
+      .set({ redirectedTo: null, redirectedAt: null, ...clearOverride });
+  } else if (prev === t.sink) {
+    await context.db.update(token, { address }).set({
+      redirectedTo: next,
+      redirectedAt: Number(event.block.timestamp),
+      lastActivityAt: Number(event.block.timestamp),
+      ...clearOverride,
+    });
+  } else if (executed) {
+    await context.db.update(token, { address }).set(clearOverride);
+  }
 });
 
 // ------------------------------------------------------------------ protocol fee

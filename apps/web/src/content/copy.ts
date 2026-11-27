@@ -167,6 +167,7 @@ export const disclosuresShort = [
   "Each credited amount is claimable for 30 days; after that, anyone can send it to the registering creator, never to FeeFlow.",
   "FeeFlow keeps a fixed 1% of fees it collects into the contract.",
   "The registering creator and the X account owner can redirect future fees out of FeeFlow.",
+  "The Pons protocol owner can redirect a token's creator fees after a 3-day notice. FeeFlow can't prevent it.",
   "Smart contracts can have bugs.",
 ];
 
@@ -179,6 +180,7 @@ export const disclosuresFull = [
   "Each credited amount is claimable for 30 days from its collect transaction; after that, anyone can send it to the creator wallet that registered the token, never to FeeFlow.",
   "FeeFlow keeps a fixed 1% of fees it collects into the contract. The rate cannot be changed.",
   "The registering creator, as well as the X account owner, can redirect future fees out of FeeFlow; already-credited amounts stay with the X account owner.",
+  "The Pons protocol owner can redirect any token's creator fees to a new recipient after a 3-day notice, and FeeFlow can't prevent it. FeeFlow shows a pending override on the token page; once it executes, new fees no longer reach FeeFlow, while amounts already in the escrow or credited stay claimable.",
   "The swap link after claiming opens Uniswap, a third-party app. Stock Tokens aren't available in some countries.",
   "Smart contracts can have bugs.",
   "FLOW ($FLOW) is FeeFlow's token. You do not need it to use FeeFlow, and holding it entitles you to nothing from FeeFlow's fees.",

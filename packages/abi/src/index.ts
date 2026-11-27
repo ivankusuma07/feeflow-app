@@ -1,1 +1,7 @@
-export { feeFlowAbi, feeSinkAbi, ponsFactoryAbi, ponsFeeEscrowAbi } from "./generated";
+export {
+  feeFlowAbi,
+  feeSinkAbi,
+  ponsFactoryAbi,
+  ponsFeeEscrowAbi,
+  ponsOverrideAbi,
+} from "./generated";

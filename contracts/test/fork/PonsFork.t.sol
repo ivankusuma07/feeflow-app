@@ -5,6 +5,7 @@ import {Test, console2} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FeeFlow} from "../../src/FeeFlow.sol";
 import {IPonsFactory, IPonsFeeEscrow, LaunchedToken, FeePolicy} from "../../src/interfaces/IPons.sol";
+import {IPonsFactoryOverride} from "../../src/interfaces/IPonsOverride.sol";
 
 /// Curve and sweep-operator functions FeeFlow does not call itself, verified against deployed
 /// bytecode selectors (ADR-001 evidence).
@@ -13,6 +14,13 @@ interface IPonsCurve {
     function sweepFees(uint256 minBuybackTokensOut) external;
     function token() external view returns (address);
     function pairToken() external view returns (address);
+}
+
+/// Owner-only side of the Pons recipient override (verified source), used to simulate it.
+interface IPonsOwnerOverride {
+    function owner() external view returns (address);
+    function setCreatorFeeRecipient(address token, address newRecipient) external;
+    function executeCreatorFeeRecipientChange(address token) external;
 }
 
 interface IPonsSweepOperator {
@@ -107,6 +115,57 @@ contract PonsForkTest is Test {
 
     function test_fork_ethPair_endToEnd() public onlyFork {
         _endToEnd(ETH_TOKEN, 0.5 ether);
+    }
+
+    /// The Pons owner can redirect any token's creator fees after a 3-day notice. Fees already
+    /// credited to the sink in the escrow are still collected and claimed through FeeFlow; fees
+    /// accrued after the override go to the new recipient; an exit still closes the token in
+    /// FeeFlow without touching Pons' recipient.
+    function test_fork_ponsOwnerOverride() public onlyFork {
+        IPonsFactoryOverride o = IPonsFactoryOverride(address(FACTORY));
+        assertEq(o.CREATOR_FEE_RECIPIENT_TIMELOCK(), 3 days, "timelock");
+        assertEq(o.CREATOR_FEE_RECIPIENT_EXECUTION_WINDOW(), 3 days, "execution window");
+
+        LaunchedToken memory lt = FACTORY.getLaunchedToken(USDG_TOKEN);
+        tToken = USDG_TOKEN;
+        tAsset = lt.pairToken;
+        _stepRoute(lt.creatorFeeRecipient);
+        _stepAccrue(lt.curve, 3000e6);
+        uint256 escrowedBefore = _escrowed();
+
+        address owner = IPonsOwnerOverride(address(FACTORY)).owner();
+        address newRecipient = makeAddr("ponsOverrideRecipient");
+        vm.prank(owner);
+        IPonsOwnerOverride(address(FACTORY)).setCreatorFeeRecipient(tToken, newRecipient);
+        (address to, uint256 effectiveAt, uint256 expiresAt) = o.pendingCreatorFeeRecipient(tToken);
+        assertEq(to, newRecipient, "pending recipient readable");
+        assertEq(effectiveAt, block.timestamp + 3 days, "effectiveAt");
+        assertEq(expiresAt, effectiveAt + 3 days, "expiresAt");
+        assertEq(FACTORY.getLaunchedToken(tToken).creatorFeeRecipient, tSink, "still the sink until executed");
+
+        vm.warp(effectiveAt);
+        vm.prank(makeAddr("anyone"));
+        IPonsOwnerOverride(address(FACTORY)).executeCreatorFeeRecipientChange(tToken);
+        assertEq(FACTORY.getLaunchedToken(tToken).creatorFeeRecipient, newRecipient, "redirected");
+        (to,,) = o.pendingCreatorFeeRecipient(tToken);
+        assertEq(to, address(0), "pending cleared");
+
+        // Credited before the override: still FeeFlow's to collect and the X account's to claim.
+        assertEq(_escrowed(), escrowedBefore, "escrow credit to the sink survives");
+        _stepCollect();
+        _stepClaim();
+
+        // New fees go to the new recipient, not the sink.
+        _buy(lt.curve, tAsset, 1000e6);
+        _sweep(lt.curve);
+        assertEq(_escrowed(), 0, "no new fees for the sink");
+
+        // Exit still closes the token in FeeFlow; it leaves Pons' recipient alone (the sink no
+        // longer controls it).
+        vm.prank(creator);
+        ff.exitByCreator(tToken, makeAddr("next"));
+        assertTrue(ff.tokens(tToken).exited, "exited in FeeFlow");
+        assertEq(FACTORY.getLaunchedToken(tToken).creatorFeeRecipient, newRecipient, "recipient untouched");
     }
 
     // State shared by the end-to-end steps (keeps each function under the stack limit).

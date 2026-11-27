@@ -15,6 +15,13 @@ export interface FeeFlowTokenView {
   exited: boolean;
 }
 
+/** Pons `pendingCreatorFeeRecipient(token)`: a protocol-owner override; zero `newRecipient` = none. */
+export interface PendingOverrideView {
+  newRecipient: Address;
+  effectiveAt: bigint;
+  expiresAt: bigint;
+}
+
 export type RouteStatus =
   /** Not a Pons v2 token. */
   | { kind: "not-pons" }
@@ -33,9 +40,41 @@ export type RouteStatus =
   /** Someone else receives this token's creator fees. */
   | { kind: "not-recipient" }
   /** No wallet connected yet. */
-  | { kind: "no-wallet" };
+  | { kind: "no-wallet" }
+  /**
+   * The Pons owner proposed a new creator fee recipient. Once it matures it replaces the sink, so
+   * routing now would move fees into FeeFlow only until then.
+   */
+  | { kind: "pons-override"; to: Address; effectiveAt: number };
+
+/** A proposal still inside its execution window; past `expiresAt` it can no longer execute. */
+export function liveOverride(
+  p: PendingOverrideView | null | undefined,
+  now: number,
+): { to: Address; effectiveAt: number } | null {
+  if (!p || isAddressEqual(p.newRecipient, zeroAddress)) return null;
+  if (Number(p.expiresAt) < now) return null;
+  return { to: p.newRecipient, effectiveAt: Number(p.effectiveAt) };
+}
 
 export function routeStatus(
+  lt: LaunchedTokenView,
+  info: FeeFlowTokenView | null,
+  predictedSink: Address | null,
+  wallet: Address | undefined,
+  pending: PendingOverrideView | null = null,
+  now: number = Math.floor(Date.now() / 1000),
+): RouteStatus {
+  const s = baseStatus(lt, info, predictedSink, wallet);
+  // Refuse only where this wallet could act next; other states already explain themselves.
+  if (s.kind === "ready" || s.kind === "needs-transfer") {
+    const o = liveOverride(pending, now);
+    if (o) return { kind: "pons-override", ...o };
+  }
+  return s;
+}
+
+function baseStatus(
   lt: LaunchedTokenView,
   info: FeeFlowTokenView | null,
   predictedSink: Address | null,

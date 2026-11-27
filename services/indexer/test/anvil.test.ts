@@ -23,10 +23,14 @@ import type {
   Totals,
 } from "@feeflow/sdk";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { indexedBlock, reconcile } from "../src/reconcile";
+import { checkPonsOverrides, indexedBlock, reconcile, type RoutedToken } from "../src/reconcile";
 
 const chain = localChain(8547);
 let ponder: Awaited<ReturnType<typeof startPonder>>;
+/** Where the Pons owner override sends fees in this story. */
+const OVERRIDE = "0x000000000000000000000000000000000000Ba5e" as const;
+/** The ETH token right after the override executed (before its exit). */
+let redirectedEth: TokenDetail;
 
 async function get<T>(p: string): Promise<T> {
   const res = await fetch(`${ponder.url}${p}`);
@@ -41,6 +45,14 @@ beforeAll(async () => {
   // ---- the on-chain story
   const usdgSink = await chain.register(ADDR.usdgToken);
   const ethSink = await chain.register(ADDR.ethToken);
+  await chain.ponsTransfer(ADDR.usdgToken, usdgSink);
+  await chain.ponsTransfer(ADDR.ethToken, ethSink);
+  // The Pons owner redirects the ETH token after the 3-day notice.
+  await chain.ponsPropose(ADDR.ethToken, OVERRIDE);
+  await chain.warp(3 * 86_400);
+  await chain.ponsExecute(ADDR.ethToken);
+  await waitIndexed(chain, ponder.url, ponder);
+  redirectedEth = await get<TokenDetail>(`/api/tokens/${ADDR.ethToken}`);
   await chain.creditUsdg(usdgSink, 150_000_000n); // 150 USDG
   await chain.collect(ADDR.usdgToken); // net 148.50
   await chain.creditEth(ethSink, 10n ** 18n);
@@ -51,6 +63,7 @@ beforeAll(async () => {
   await chain.warp(31 * 86_400);
   await chain.releaseExpired(ADDR.usdgToken);
   await chain.creditUsdg(usdgSink, 5_000_000n); // waits in the escrow: "accrued"
+  await chain.ponsPropose(ADDR.usdgToken, OVERRIDE); // pending until the run ends
   await chain.exitByCreator(ADDR.ethToken, CREATOR);
   await chain.test.mine({ blocks: 2 });
   await waitIndexed(chain, ponder.url, ponder);
@@ -116,6 +129,40 @@ describe("indexer on Anvil", () => {
       exitRole: "creator",
       counterparty: CREATOR.toLowerCase(),
     });
+  });
+
+  it("tracks Pons owner overrides: pending, then redirected, cleared by an exit", async () => {
+    expect(redirectedEth).toMatchObject({
+      status: "redirected",
+      redirectedTo: OVERRIDE.toLowerCase(),
+      ponsOverride: null,
+    });
+
+    const usdg = await get<TokenDetail>(`/api/tokens/${ADDR.usdgToken}`);
+    expect(usdg.status).toBe("routed");
+    expect(usdg.ponsOverride).toMatchObject({ to: OVERRIDE.toLowerCase() });
+    expect(usdg.ponsOverride!.txHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(usdg.ponsOverride!.expiresAt - usdg.ponsOverride!.effectiveAt).toBe(3 * 86_400);
+
+    // The exited ETH token is no longer "redirected", and its exit left Pons' recipient alone.
+    const eth = await get<TokenDetail>(`/api/tokens/${ADDR.ethToken}`);
+    expect(eth).toMatchObject({ status: "exited", redirectedTo: null });
+
+    // The reconcile job's independent chain read agrees with the indexer.
+    const tokens = await get<RoutedToken[]>("/api/keeper/work");
+    const findings = await checkPonsOverrides({
+      client: chain.client,
+      factory: ADDR.factory,
+      tokens,
+      blockNumber: await indexedBlock(ponder.url),
+      now: Number((await chain.client.getBlock()).timestamp), // chain time runs ahead after warps
+    });
+    expect(findings).toEqual([
+      expect.objectContaining({
+        status: "pons-override-pending",
+        token: ADDR.usdgToken.toLowerCase(),
+      }),
+    ]);
   });
 
   it("shows escrow balances as accrued once a snapshot runs", async () => {

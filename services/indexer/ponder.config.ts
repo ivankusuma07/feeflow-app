@@ -1,9 +1,11 @@
-import { feeFlowAbi } from "@feeflow/abi";
-import { indexerEnvSchema, parseServerEnv } from "@feeflow/config";
+import { feeFlowAbi, ponsOverrideAbi } from "@feeflow/abi";
+import { indexerEnvSchema, parseServerEnv, THIRD_PARTY_ADDRESSES } from "@feeflow/config";
 import { createConfig } from "ponder";
 import { fallback, http } from "viem";
 
 const env = parseServerEnv(indexerEnvSchema, process.env, "indexer");
+const ponsFactory = THIRD_PARTY_ADDRESSES[env.CHAIN_ID]?.ponsFactory;
+if (!ponsFactory) throw new Error(`No Pons factory address for chain ${env.CHAIN_ID}`);
 if (env.NODE_ENV === "production" && !env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required in production (PGlite is for development only).");
 }
@@ -27,6 +29,13 @@ export default createConfig({
       chain: "main",
       abi: feeFlowAbi,
       address: env.CONTRACT_ADDRESS,
+      startBlock: env.CONTRACT_DEPLOY_BLOCK,
+    },
+    // Recipient override events for every Pons token; handlers keep only FeeFlow's tokens.
+    PonsFactory: {
+      chain: "main",
+      abi: ponsOverrideAbi,
+      address: ponsFactory,
       startBlock: env.CONTRACT_DEPLOY_BLOCK,
     },
   },

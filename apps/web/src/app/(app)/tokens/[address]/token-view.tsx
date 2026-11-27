@@ -107,6 +107,7 @@ function Token({ t }: { t: TokenDetail }) {
   const pons = THIRD_PARTY_ADDRESSES[APP_CHAIN_ID];
   const handle = handleOf(t);
   const exited = t.status === "exited";
+  const redirected = t.status === "redirected";
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ["ds"] });
 
   // The curve address comes from Pons; sweeping a curve goes through the public operator.
@@ -138,7 +139,11 @@ function Token({ t }: { t: TokenDetail }) {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
             <Badge className="gap-1.5">
               <Avatar src={t.recipient.avatarUrl} label={handle} size={18} />
-              {exited ? `Moved out of FeeFlow · was ${handle}` : `Routed to ${handle}`}
+              {exited
+                ? `Moved out of FeeFlow · was ${handle}`
+                : redirected
+                  ? `Fees redirected by Pons · was ${handle}`
+                  : `Routed to ${handle}`}
             </Badge>
             <Badge className="font-mono">{symbolOf(t.pairAsset)} pair</Badge>
             {t.graduated ? <Badge className="font-mono">Graduated</Badge> : null}
@@ -170,13 +175,31 @@ function Token({ t }: { t: TokenDetail }) {
         </Note>
       ) : null}
 
-      {t.pendingTakeover ? (
+      {t.ponsOverride ? (
         <Note tone="warn" className="mt-5">
-          <strong>Pons community takeover proposed.</strong> A new creator fee recipient{" "}
-          <span className="font-mono">{shortAddress(t.pendingTakeover.proposedRecipient)}</span> can
-          be executed from <strong>{formatDate(t.pendingTakeover.effectiveAt)}</strong> until{" "}
-          {formatDate(t.pendingTakeover.expiresAt)}. If executed, future fees stop flowing to
-          FeeFlow. <TxAnchor hash={t.pendingTakeover.txHash}>Proposal tx</TxAnchor>
+          <strong>
+            Pons override pending (effective {formatDate(t.ponsOverride.effectiveAt)}).
+          </strong>{" "}
+          The Pons protocol owner proposed a new creator fee recipient{" "}
+          <span className="font-mono">{shortAddress(t.ponsOverride.to)}</span>. Anyone can execute
+          it from {formatDate(t.ponsOverride.effectiveAt)} until{" "}
+          {formatDate(t.ponsOverride.expiresAt)}; after that, new fees stop flowing to FeeFlow. Fees
+          already in the escrow or credited stay claimable.
+          {t.ponsOverride.txHash ? (
+            <>
+              {" "}
+              <TxAnchor hash={t.ponsOverride.txHash}>Proposal tx</TxAnchor>
+            </>
+          ) : null}
+        </Note>
+      ) : null}
+
+      {t.status === "redirected" && t.redirectedTo ? (
+        <Note tone="warn" className="mt-5">
+          <strong>Fees redirected by Pons.</strong> The Pons protocol owner moved this token&apos;s
+          creator fees to <span className="font-mono">{shortAddress(t.redirectedTo)}</span>. New
+          fees no longer reach FeeFlow; amounts already in the escrow or credited can still be
+          collected and claimed.
         </Note>
       ) : null}
 
@@ -190,7 +213,7 @@ function Token({ t }: { t: TokenDetail }) {
           <p className="mt-2 mb-0 text-xs text-muted">
             Read from <span className="font-mono">pendingFees + pendingCreatorTax</span>.
           </p>
-          {!t.graduated && pons?.ponsSweepOperator && curve && !exited ? (
+          {!t.graduated && pons?.ponsSweepOperator && curve && !exited && !redirected ? (
             <>
               <TxButton
                 className="mt-4"

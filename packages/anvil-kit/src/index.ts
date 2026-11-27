@@ -6,7 +6,7 @@
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { feeFlowAbi } from "@feeflow/abi";
+import { feeFlowAbi, ponsFactoryAbi, ponsOverrideAbi } from "@feeflow/abi";
 import { THIRD_PARTY_ADDRESSES } from "@feeflow/config";
 import { claimTypes, feeFlowDomain, registerTypes, routeTypes } from "@feeflow/sdk";
 import {
@@ -52,6 +52,12 @@ export const KEEPER_TEST_KEY: Hex =
   "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a";
 export const X_ID = 1000000000n;
 export const CLAIM_WALLET: Address = "0x00000000000000000000000000000000000c1a1e";
+
+/** Owner-only on Pons; open to anyone on the mock factory (contracts/test/mocks/Mocks.sol). */
+const ponsOverrideMockAbi = parseAbi([
+  "function setCreatorFeeRecipient(address token, address newRecipient)",
+  "function executeCreatorFeeRecipientChange(address token)",
+]);
 
 const escrowAbi = parseAbi([
   "function credit(address recipient) payable",
@@ -195,6 +201,43 @@ export function localChain(port: number) {
     collect: (token: Address) => ff("collect", [token]),
     releaseExpired: (token: Address) => ff("releaseExpired", [token, 10n]),
     exitByCreator: (token: Address, to: Address) => ff("exitByCreator", [token, to]),
+
+    /** Points Pons fees at `to` (routing step 5); the wallet is the demo tokens' recipient. */
+    ponsTransfer: (token: Address, to: Address) =>
+      send(
+        wallet.writeContract({
+          address: ADDR.factory,
+          abi: ponsFactoryAbi,
+          functionName: "transferCreatorFeeRecipient",
+          args: [token, to],
+        }),
+      ),
+    /** Pons owner override on the mock factory: propose now, execute after the 3-day timelock. */
+    ponsPropose: (token: Address, to: Address) =>
+      send(
+        wallet.writeContract({
+          address: ADDR.factory,
+          abi: ponsOverrideMockAbi,
+          functionName: "setCreatorFeeRecipient",
+          args: [token, to],
+        }),
+      ),
+    ponsExecute: (token: Address) =>
+      send(
+        wallet.writeContract({
+          address: ADDR.factory,
+          abi: ponsOverrideMockAbi,
+          functionName: "executeCreatorFeeRecipientChange",
+          args: [token],
+        }),
+      ),
+    ponsPending: (token: Address) =>
+      client.readContract({
+        address: ADDR.factory,
+        abi: ponsOverrideAbi,
+        functionName: "pendingCreatorFeeRecipient",
+        args: [token],
+      }),
 
     async claim(tokens: Address[], to: Address = CLAIM_WALLET) {
       const expiry = (await now()) + 600n;
