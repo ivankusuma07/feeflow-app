@@ -12,6 +12,7 @@ balance, and serves the REST API the web app reads (`apps/web/src/data/indexer.t
 | `GET /api/accounts/:xUserId`                 | `AccountView` (404)       |
 | `GET /api/leaderboard?period=&asset=&limit=` | `LeaderboardEntry[]`      |
 | `GET /api/keeper/status`                     | `KeeperStatus`            |
+| `GET /api/keeper/work`                       | keeper work list          |
 
 Ponder also serves `/health`, `/ready` and `/status`.
 
@@ -43,5 +44,5 @@ with one JSON line per drifting field.
 - `unswept` is `null`: no verified Pons view for fees still on a curve or hook
   (`docs/placeholders.md`, `PONS_UNSWEPT_GETTER`). `accrued` is the escrow balance only.
 - `imageUrl` is `null` until the Pons token image source is confirmed.
-- `/api/keeper/status` reports no runs until the keeper writes its heartbeat.
+- `/api/keeper/status` reads the keeper's `/health` (`KEEPER_HEALTH_URL`); `/api/keeper/work` is its work list.
 - `hasLoggedIn` is set once an account claims or exits by handle, the only on-chain proof of login.

@@ -1,0 +1,23 @@
+{
+  "name": "@feeflow/anvil-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Test-only helpers: a local Anvil chain with DeployLocal, the on-chain story and a Ponder process.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@feeflow/abi": "workspace:*",
+    "@feeflow/config": "workspace:*",
+    "@feeflow/sdk": "workspace:*",
+    "viem": "^2.58.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "~5.9.3"
+  }
+}
