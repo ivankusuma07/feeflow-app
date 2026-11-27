@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { Button } from "@feeflow/ui";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
+import { AppShell } from "@/components/shell/app-shell";
 
 export default function NotFound() {
   return (
-    <>
-      <SiteHeader />
+    <AppShell>
       <main id="main" className="container-page max-w-[640px] pt-24 pb-20 text-center">
         <h1 className="section-title">Page not found</h1>
         <p className="mt-3 text-muted">This page does not exist.</p>
@@ -14,7 +12,6 @@ export default function NotFound() {
           <Link href="/">Back to home</Link>
         </Button>
       </main>
-      <SiteFooter />
-    </>
+    </AppShell>
   );
 }
