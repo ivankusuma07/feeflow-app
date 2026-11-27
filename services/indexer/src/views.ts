@@ -10,6 +10,8 @@ import {
   type Batch,
   type ClaimRecord,
   type LeaderboardEntry,
+  type PonsOverride,
+  type RoutingStatus,
   type TokenDetail,
   type TokenEvent,
   type TokenSummary,
@@ -76,6 +78,7 @@ export function tokenSummary(
   l: Lookups,
   t: TokenRow,
   snapshot: SnapshotRow | undefined,
+  now: number = Math.floor(Date.now() / 1000),
 ): TokenSummary {
   const a = pairAsset(l, t.asset);
   return {
@@ -87,7 +90,9 @@ export function tokenSummary(
     imageUrl: ipfsImageUrl(t.logo),
     graduated: snapshot?.graduated ?? false,
     recipient: xAccount(l, t.xUserId),
-    status: t.exited ? "exited" : "routed",
+    status: routingStatus(t),
+    ponsOverride: ponsOverride(t, now),
+    redirectedTo: !t.exited && t.redirectedTo ? t.redirectedTo : null,
     sink: t.sink,
     creator: t.creator,
     routedAt: t.routedAt,
@@ -96,6 +101,31 @@ export function tokenSummary(
     accrued: amount(a, t.exited ? 0n : (snapshot?.escrow ?? 0n)),
     credited: amount(a, t.credited),
     lastActivityAt: t.lastActivityAt,
+  };
+}
+
+/** An exit closes the token in FeeFlow; otherwise a Pons override that moved the recipient wins. */
+export function routingStatus(t: Pick<TokenRow, "exited" | "redirectedTo">): RoutingStatus {
+  if (t.exited) return "exited";
+  return t.redirectedTo ? "redirected" : "routed";
+}
+
+/** A proposed Pons override, until it expires unexecuted. Not shown once the token exited. */
+export function ponsOverride(
+  t: Pick<
+    TokenRow,
+    "exited" | "overrideTo" | "overrideEffectiveAt" | "overrideExpiresAt" | "overrideTx"
+  >,
+  now: number,
+): PonsOverride | null {
+  if (t.exited || !t.overrideTo || t.overrideEffectiveAt == null || t.overrideExpiresAt == null)
+    return null;
+  if (now > t.overrideExpiresAt) return null;
+  return {
+    to: t.overrideTo,
+    effectiveAt: t.overrideEffectiveAt,
+    expiresAt: t.overrideExpiresAt,
+    txHash: t.overrideTx,
   };
 }
 
@@ -167,7 +197,6 @@ export function tokenDetail(
     },
     batches: open,
     history: [...events].sort(byNewest).map((e) => tokenEventView(l, a, e)),
-    pendingTakeover: null,
     feePolicy: policy,
     claimsLast30d: events.filter((e) => e.kind === "claim" && e.timestamp > now - WINDOW).length,
     expiredToCreator: amount(a, t.expiredToCreator),

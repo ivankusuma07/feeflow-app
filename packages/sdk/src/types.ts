@@ -43,11 +43,29 @@ export interface TokenMeta {
   graduated: boolean;
 }
 
-export type RoutingStatus = "routed" | "exited";
+/**
+ * "redirected": the Pons protocol owner moved the token's creator fee recipient away from its
+ * FeeFlow sink (owner override). Fees credited before that stay claimable; new fees no longer
+ * reach FeeFlow.
+ */
+export type RoutingStatus = "routed" | "exited" | "redirected";
+
+/** A pending Pons owner override of the creator fee recipient (executable from effectiveAt). */
+export interface PonsOverride {
+  to: Address;
+  effectiveAt: number;
+  expiresAt: number;
+  /** The proposal transaction; null when it predates the token's FeeFlow registration. */
+  txHash: Hash | null;
+}
 
 export interface TokenSummary extends TokenMeta {
   recipient: XAccount;
   status: RoutingStatus;
+  /** Pending Pons owner override, while it can still be executed; null otherwise. */
+  ponsOverride: PonsOverride | null;
+  /** Where Pons now sends this token's creator fees, when status is "redirected". */
+  redirectedTo: Address | null;
   sink: Address;
   creator: Address;
   routedAt: number;
@@ -82,13 +100,6 @@ export interface TokenEvent extends ChainRef {
   actor?: XAccount;
 }
 
-export interface PendingTakeover {
-  proposedRecipient: Address;
-  effectiveAt: number;
-  expiresAt: number;
-  txHash: Hash;
-}
-
 export interface FeePolicyView {
   /** Pons creator share and protocol share, in bps, from getLaunchFeePolicy. Null until read. */
   creatorShareBps: number | null;
@@ -106,7 +117,6 @@ export interface TokenDetail extends TokenSummary {
   };
   batches: Batch[];
   history: TokenEvent[];
-  pendingTakeover: PendingTakeover | null;
   feePolicy: FeePolicyView;
   /** Brief correction 4: abuse signals. */
   claimsLast30d: number;

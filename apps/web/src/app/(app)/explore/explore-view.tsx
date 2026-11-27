@@ -242,6 +242,14 @@ function TokenCard({ token: t }: { token: TokenSummary }) {
           <Badge tone="muted" className="absolute top-2 left-2 bg-surface/90">
             Exited
           </Badge>
+        ) : t.status === "redirected" ? (
+          <Badge tone="outline" className="absolute top-2 left-2 bg-surface/90">
+            Redirected by Pons
+          </Badge>
+        ) : t.ponsOverride ? (
+          <Badge tone="outline" className="absolute top-2 left-2 bg-surface/90">
+            Pons override pending
+          </Badge>
         ) : null}
         <span className="absolute bottom-2 left-2 inline-flex max-w-[calc(100%-16px)] items-center gap-1.5 rounded-full bg-surface/95 py-1 pr-2.5 pl-1 text-xs font-medium">
           <Avatar src={t.recipient.avatarUrl} label={handleOf(t)} size={20} />

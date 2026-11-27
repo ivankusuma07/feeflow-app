@@ -1,6 +1,11 @@
 import { getAddress, zeroAddress } from "viem";
 import { describe, expect, it } from "vitest";
-import { routeStatus, type FeeFlowTokenView, type LaunchedTokenView } from "./route-status";
+import {
+  routeStatus,
+  type FeeFlowTokenView,
+  type LaunchedTokenView,
+  type PendingOverrideView,
+} from "./route-status";
 
 const ME = getAddress("0x00000000000000000000000000000000000000a1");
 const OTHER = getAddress("0x00000000000000000000000000000000000000b2");
@@ -72,5 +77,37 @@ describe("routeStatus", () => {
       xUserId: 42n,
     });
     expect(routeStatus(lt(), registered({ exited: true }), SINK, ME)).toEqual({ kind: "exited" });
+  });
+
+  describe("with a pending Pons owner override", () => {
+    const NOW = 1_800_000_000;
+    const pending: PendingOverrideView = {
+      newRecipient: OTHER,
+      effectiveAt: BigInt(NOW + 3 * 86_400),
+      expiresAt: BigInt(NOW + 6 * 86_400),
+    };
+    const refused = { kind: "pons-override", to: OTHER, effectiveAt: NOW + 3 * 86_400 };
+
+    it("refuses to start or finish routing", () => {
+      expect(routeStatus(lt(), unregistered, SINK, ME, pending, NOW)).toEqual(refused);
+      expect(routeStatus(lt(), registered(), SINK, ME, pending, NOW)).toEqual(refused);
+      expect(
+        routeStatus(lt({ creatorFeeRecipient: SINK }), unregistered, SINK, ME, pending, NOW),
+      ).toEqual(refused);
+    });
+
+    it("ignores an empty or expired proposal", () => {
+      const none = { newRecipient: zeroAddress, effectiveAt: 0n, expiresAt: 0n };
+      expect(routeStatus(lt(), unregistered, SINK, ME, none, NOW).kind).toBe("ready");
+      expect(routeStatus(lt(), unregistered, SINK, ME, pending, NOW + 7 * 86_400).kind).toBe(
+        "ready",
+      );
+    });
+
+    it("keeps states this wallet cannot act on", () => {
+      const routed = lt({ creatorFeeRecipient: SINK });
+      expect(routeStatus(routed, registered(), SINK, ME, pending, NOW).kind).toBe("routed");
+      expect(routeStatus(lt(), unregistered, SINK, undefined, pending, NOW).kind).toBe("no-wallet");
+    });
   });
 });

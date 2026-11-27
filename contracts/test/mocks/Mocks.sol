@@ -59,11 +59,38 @@ contract MockEscrow {
     }
 }
 
-/// @dev Pons factory stand-in with the documented recipient rules.
+/// @dev Pons factory stand-in with the documented recipient rules, including the protocol-owner
+///      override (IPonsOverride.sol) with the same events. Anyone may propose here; on Pons only
+///      the owner can.
 contract MockFactory {
+    struct PendingRecipient {
+        address newRecipient;
+        uint256 effectiveAt;
+        uint256 expiresAt;
+    }
+
+    uint256 public constant CREATOR_FEE_RECIPIENT_TIMELOCK = 3 days;
+    uint256 public constant CREATOR_FEE_RECIPIENT_EXECUTION_WINDOW = 3 days;
+
     mapping(address => LaunchedToken) internal _launched;
+    mapping(address => PendingRecipient) public pendingCreatorFeeRecipient;
+
+    event CreatorFeeRecipientUpdated(
+        address indexed token, address indexed previousRecipient, address indexed newRecipient
+    );
+    event CreatorFeeRecipientChangeProposed(
+        address indexed token,
+        address indexed currentRecipient,
+        address indexed proposedRecipient,
+        uint256 effectiveAt,
+        uint256 expiresAt
+    );
+    event CreatorFeeRecipientChangeCancelled(address indexed token, address indexed proposedRecipient);
 
     error NotCreatorFeeRecipient();
+    error NoPendingChange();
+    error TimelockNotElapsed(uint256 effectiveAt);
+    error TimelockExpired(uint256 expiresAt);
 
     function launch(address token, address deployer, address recipient, address pairToken) external {
         LaunchedToken storage l = _launched[token];
@@ -80,7 +107,38 @@ contract MockFactory {
 
     function transferCreatorFeeRecipient(address token, address newRecipient) external {
         if (msg.sender != _launched[token].creatorFeeRecipient) revert NotCreatorFeeRecipient();
+        _setRecipient(token, newRecipient);
+    }
+
+    function setCreatorFeeRecipient(address token, address newRecipient) external {
+        uint256 effectiveAt = block.timestamp + CREATOR_FEE_RECIPIENT_TIMELOCK;
+        uint256 expiresAt = effectiveAt + CREATOR_FEE_RECIPIENT_EXECUTION_WINDOW;
+        pendingCreatorFeeRecipient[token] = PendingRecipient(newRecipient, effectiveAt, expiresAt);
+        emit CreatorFeeRecipientChangeProposed(
+            token, _launched[token].creatorFeeRecipient, newRecipient, effectiveAt, expiresAt
+        );
+    }
+
+    function executeCreatorFeeRecipientChange(address token) external {
+        PendingRecipient memory p = pendingCreatorFeeRecipient[token];
+        if (p.newRecipient == address(0)) revert NoPendingChange();
+        if (block.timestamp < p.effectiveAt) revert TimelockNotElapsed(p.effectiveAt);
+        if (block.timestamp > p.expiresAt) revert TimelockExpired(p.expiresAt);
+        delete pendingCreatorFeeRecipient[token];
+        _setRecipient(token, p.newRecipient);
+    }
+
+    function cancelCreatorFeeRecipientChange(address token) external {
+        PendingRecipient memory p = pendingCreatorFeeRecipient[token];
+        if (p.newRecipient == address(0)) revert NoPendingChange();
+        delete pendingCreatorFeeRecipient[token];
+        emit CreatorFeeRecipientChangeCancelled(token, p.newRecipient);
+    }
+
+    function _setRecipient(address token, address newRecipient) internal {
+        address previous = _launched[token].creatorFeeRecipient;
         _launched[token].creatorFeeRecipient = newRecipient;
+        emit CreatorFeeRecipientUpdated(token, previous, newRecipient);
     }
 
     function getLaunchFeePolicy(address) external pure returns (FeePolicy memory p) {

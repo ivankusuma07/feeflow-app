@@ -13,6 +13,10 @@ export interface WorkItem {
   asset: Address;
   curve: Address | null;
   exited: boolean;
+  /** Pending Pons owner override of the creator fee recipient; null when none. */
+  ponsOverride: { to: Address; effectiveAt: number; expiresAt: number } | null;
+  /** Set when a Pons override moved the recipient off the sink (not exited). */
+  redirectedTo: Address | null;
   graduated: boolean;
   /** Credited in FeeFlow (base units, decimal string). */
   credited: string;
@@ -37,11 +41,39 @@ export function collectThreshold(t: Thresholds, asset: Address): bigint | undefi
 }
 
 /**
- * Sweep candidates: routed (not exited), not graduated, with a known curve. Graduated tokens
- * accrue on the pool hook, whose sweep needs a pool id the keeper does not have yet.
+ * Sweep candidates: routed (not exited or redirected by Pons), not graduated, with a known curve.
+ * Graduated tokens accrue on the pool hook, whose sweep needs a pool id the keeper does not have
+ * yet. A redirected token's sweep would pay its new recipient, so it costs gas for nothing.
  */
 export function sweepCandidates(items: WorkItem[]): WorkItem[] {
-  return items.filter((i) => !i.exited && !i.graduated && i.curve !== null);
+  return items.filter(
+    (i) => !i.exited && i.redirectedTo === null && !i.graduated && i.curve !== null,
+  );
+}
+
+export type OverrideAlert =
+  | { alert: "pons-override-pending"; token: Address; to: Address; effectiveAt: number }
+  | { alert: "pons-redirected"; token: Address; to: Address };
+
+/**
+ * The Pons protocol owner can redirect a token's creator fees after a 3-day notice, and FeeFlow
+ * cannot stop it. Every run logs one alert per affected token so an operator can tell the creator
+ * (and collect what is still in the escrow) before the override executes.
+ */
+export function overrideAlerts(items: WorkItem[]): OverrideAlert[] {
+  const out: OverrideAlert[] = [];
+  for (const i of items) {
+    if (i.exited) continue;
+    if (i.redirectedTo) out.push({ alert: "pons-redirected", token: i.token, to: i.redirectedTo });
+    if (i.ponsOverride)
+      out.push({
+        alert: "pons-override-pending",
+        token: i.token,
+        to: i.ponsOverride.to,
+        effectiveAt: i.ponsOverride.effectiveAt,
+      });
+  }
+  return out;
 }
 
 /**
