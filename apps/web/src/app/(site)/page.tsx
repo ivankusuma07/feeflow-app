@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge, Button, Card, IconTile, cn } from "@feeflow/ui";
 import { FeatureIcon } from "@/components/landing/feature-icon";
-import { LiveOverview } from "@/components/landing/live-overview";
+import { HomeMosaic } from "@/components/landing/home-mosaic";
 import {
   disclosuresShort,
   faq,
@@ -23,7 +23,7 @@ export default function LandingPage() {
   return (
     <main id="main" className="container-page">
       {/* Hero: text and buttons only, no illustration. */}
-      <section className="pt-20 pb-16 text-center md:pt-24 md:pb-[72px]">
+      <section className="pt-16 pb-12 text-center md:pt-20 md:pb-14">
         <p className="mb-5 font-mono text-[13px] text-muted">{hero.eyebrow}</p>
         <h1 className="mx-auto max-w-[820px] text-[40px] leading-[1.05] font-semibold tracking-[-0.02em] md:text-[56px]">
           {hero.headline}
@@ -33,15 +33,15 @@ export default function LandingPage() {
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-5">
           <Button asChild size="lg">
-            <Link href="/dashboard">Open app</Link>
+            <Link href="/claim">Claim fees</Link>
           </Button>
-          <Link href="/payments" className="text-[15px] font-medium">
-            See every payment →
-          </Link>
+          <Button asChild size="lg" variant="secondary">
+            <Link href="/route">Route a token</Link>
+          </Button>
         </div>
       </section>
 
-      <LiveOverview />
+      <HomeMosaic />
 
       <section className="pt-28" aria-labelledby="how-it-works">
         <h2 id="how-it-works" className="section-title">
@@ -111,7 +111,7 @@ export default function LandingPage() {
             99% is credited to the X account. The rate is a constant with no setter.
           </p>
           <div className="mt-4 border-t border-line pt-4 font-mono text-[13px] text-muted">
-            FEE_BPS() = — · read from contract after deploy
+            FEE_BPS() = 100 · read on chain
           </div>
         </Card>
       </section>
