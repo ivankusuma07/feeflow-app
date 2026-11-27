@@ -22,6 +22,9 @@ export default createConfig({
         ? fallback([http(env.RPC_URL), http(env.RPC_URL_FALLBACK)])
         : env.RPC_URL,
       reorgWindow: env.CONFIRMATIONS,
+      // The public RPC answers bursts with 429s and Ponder then stalls; the default is 50/s.
+      // Pons factory events (every token, not just FeeFlow ones) make backfills request-heavy.
+      maxRequestsPerSecond: 10,
     },
   },
   contracts: {
