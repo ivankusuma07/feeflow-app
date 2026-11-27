@@ -1,5 +1,10 @@
 import { feeFlowAbi, ponsOverrideAbi } from "@feeflow/abi";
-import { indexerEnvSchema, parseServerEnv, THIRD_PARTY_ADDRESSES } from "@feeflow/config";
+import {
+  ANVIL_CHAIN_ID,
+  indexerEnvSchema,
+  parseServerEnv,
+  THIRD_PARTY_ADDRESSES,
+} from "@feeflow/config";
 import { createConfig } from "ponder";
 import { fallback, http } from "viem";
 
@@ -24,7 +29,7 @@ export default createConfig({
       reorgWindow: env.CONFIRMATIONS,
       // The public RPC answers bursts with 429s and Ponder then stalls; the default is 50/s.
       // Pons factory events (every token, not just FeeFlow ones) make backfills request-heavy.
-      maxRequestsPerSecond: 10,
+      maxRequestsPerSecond: env.CHAIN_ID === ANVIL_CHAIN_ID ? 50 : 10,
     },
   },
   contracts: {
