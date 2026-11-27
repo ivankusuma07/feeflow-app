@@ -41,7 +41,7 @@ createServer((req, res) => {
     Date.now() / 1000 - health.lastRunAt > 3 * env.LOOP_INTERVAL_SECONDS + 600;
   res.writeHead(stale ? 503 : 200, { "content-type": "application/json" });
   res.end(JSON.stringify(health));
-}).listen(env.HEALTH_PORT, "127.0.0.1");
+}).listen(env.HEALTH_PORT, env.HEALTH_HOST);
 
 log({
   kind: "start",

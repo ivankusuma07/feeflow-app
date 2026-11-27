@@ -28,3 +28,7 @@ services/indexer/generated/
 /FeeFlow_Page Designs.html
 /magnific_*.png
 next-env.d.ts
+
+# Deployment secrets (live only on the VPS)
+deploy/env/*.env
+deploy/env/postgres_password

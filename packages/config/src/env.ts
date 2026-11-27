@@ -158,6 +158,8 @@ export const keeperEnvSchema = z.object({
   /** Days between withdrawFees calls per asset. */
   WITHDRAW_FEES_EVERY_DAYS: z.coerce.number().positive().default(7),
   HEALTH_PORT: z.coerce.number().int().default(8788),
+  /** 127.0.0.1 on a bare host; 0.0.0.0 inside a container so the indexer can read it. */
+  HEALTH_HOST: z.string().default("127.0.0.1"),
 });
 export type KeeperEnv = z.infer<typeof keeperEnvSchema>;
 
