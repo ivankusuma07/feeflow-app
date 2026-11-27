@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Wordmark } from "@feeflow/ui";
 import { footerNote } from "@/content/copy";
-import { contractLabel, links } from "@/lib/config";
+import { links } from "@/lib/config";
 
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
   const external = /^https?:\/\//.test(href);
@@ -22,9 +22,6 @@ export function SiteFooter() {
           <Wordmark height={26} />
           <p className="mt-3 text-sm leading-normal text-muted">
             Creator fees, routed to X accounts. Built on Robinhood Chain.
-          </p>
-          <p className="mt-3 font-mono text-[13px] break-all text-muted">
-            Contract: {contractLabel}
           </p>
         </div>
         <nav aria-label="Footer" className="flex flex-wrap content-start gap-5 text-sm">

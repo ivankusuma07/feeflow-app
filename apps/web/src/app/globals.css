@@ -33,3 +33,68 @@
     font-size: 36px;
   }
 }
+
+/* Home mosaic motion. Loops are content doubled and shifted by half, so they wrap seamlessly. */
+@keyframes ff-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+@keyframes ff-down {
+  from {
+    transform: translateY(-50%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes ff-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes ff-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@utility ff-loop-up {
+  animation: ff-up var(--ff-dur, 28s) linear infinite;
+}
+@utility ff-loop-down {
+  animation: ff-down var(--ff-dur, 28s) linear infinite;
+}
+@utility ff-loop-left {
+  animation: ff-left var(--ff-dur, 12s) linear infinite;
+}
+@utility ff-rise {
+  animation: ff-rise 0.35s ease-out both;
+}
+@utility ff-fade-y {
+  mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent);
+}
+@utility ff-fade-x {
+  mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+}
+.group:hover :is(.ff-loop-up, .ff-loop-down) {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.ff-loop-up, .ff-loop-down, .ff-loop-left, .ff-rise) {
+    animation: none;
+  }
+  .ff-odo-strip {
+    transition: none !important;
+  }
+}

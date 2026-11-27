@@ -3,7 +3,7 @@
 import { isNative, knownPairAssets, type PairAsset } from "@feeflow/config";
 import { initials, shortAddress, type TokenSummary } from "@feeflow/sdk";
 import { Badge, Button, Card, Segmented, cn } from "@feeflow/ui";
-import { Check, Copy, Search } from "lucide-react";
+import { Check, Coins, Copy, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { Amount } from "@/components/app/amount";
@@ -175,16 +175,27 @@ function TokenGrid({ sort, asset, q }: { sort: TokenSort; asset?: string; q?: st
     return q ? (
       <EmptyState className="mt-5" title="No tokens match" body={`Nothing matches “${q}”.`} />
     ) : (
-      <EmptyState
-        className="mt-5"
-        title="No tokens yet"
-        body="Tokens appear here once their creators route fees through FeeFlow."
-        action={
-          <Button asChild>
-            <Link href="/route">Route a token</Link>
-          </Button>
-        }
-      />
+      <div className="relative">
+        <ul className={GRID} aria-hidden>
+          {Array.from({ length: 10 }, (_, i) => (
+            <li key={i}>
+              <GhostCard seed={i} />
+            </li>
+          ))}
+        </ul>
+        <div className="absolute inset-0 flex items-start justify-center bg-gradient-to-b from-transparent via-bg/60 to-bg pt-16">
+          <EmptyState
+            className="w-full max-w-md shadow-sm"
+            title="No tokens yet"
+            body="Tokens appear here once their creators route fees through FeeFlow."
+            action={
+              <Button asChild>
+                <Link href="/route">Route a token</Link>
+              </Button>
+            }
+          />
+        </div>
+      </div>
     );
   }
 
@@ -253,6 +264,30 @@ function TokenCard({ token: t }: { token: TokenSummary }) {
         <CopyAddress address={t.address} />
       </div>
     </article>
+  );
+}
+
+/** Empty-grid placeholder: a token card's shape with no name or figure. */
+function GhostCard({ seed }: { seed: number }) {
+  const tints = ["bg-accent/25", "bg-subtle", "bg-accent/10", "bg-subtle-2"];
+  return (
+    <div className="flex h-full flex-col rounded-[14px] border border-line bg-surface p-2">
+      <div
+        className={cn(
+          "relative flex aspect-square w-full items-center justify-center rounded-[10px]",
+          tints[seed % tints.length],
+        )}
+      >
+        <Coins size={32} className="text-ink/20" />
+        <span className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-surface/90 py-1 pr-3 pl-1">
+          <span className="size-5 rounded-full bg-subtle-2" />
+          <span className="h-2 w-14 rounded-full bg-subtle-2" />
+        </span>
+      </div>
+      <div className="mt-3 h-2.5 w-3/4 rounded-full bg-subtle" />
+      <div className="mt-2 h-2.5 w-1/2 rounded-full bg-subtle" />
+      <div className="mt-2 mb-1 h-2 w-2/5 rounded-full bg-subtle" />
+    </div>
   );
 }
 
