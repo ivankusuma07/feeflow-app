@@ -39,6 +39,8 @@ export const ADDR = {
   usdg: pons.usdg,
   usdgToken: addrOf("feeflow.demo.usdg"),
   ethToken: addrOf("feeflow.demo.eth"),
+  /** Not launched by DeployLocal; tests launch it on the mock factory with `ponsLaunch`. */
+  extraToken: addrOf("feeflow.demo.extra"),
 } as const satisfies Record<string, Address>;
 
 /** Anvil account 0: deployer, creator of both demo tokens, FEE_RECIPIENT and ADMIN. */
@@ -57,6 +59,7 @@ export const CLAIM_WALLET: Address = "0x00000000000000000000000000000000000c1a1e
 const ponsOverrideMockAbi = parseAbi([
   "function setCreatorFeeRecipient(address token, address newRecipient)",
   "function executeCreatorFeeRecipientChange(address token)",
+  "function launch(address token, address deployer, address recipient, address pairToken)",
 ]);
 
 const escrowAbi = parseAbi([
@@ -202,6 +205,16 @@ export function localChain(port: number) {
     releaseExpired: (token: Address) => ff("releaseExpired", [token, 10n]),
     exitByCreator: (token: Address, to: Address) => ff("exitByCreator", [token, to]),
 
+    /** Launches `token` on the mock factory with the wallet as deployer and recipient. */
+    ponsLaunch: (token: Address, pairToken: Address) =>
+      send(
+        wallet.writeContract({
+          address: ADDR.factory,
+          abi: ponsOverrideMockAbi,
+          functionName: "launch",
+          args: [token, CREATOR, CREATOR, pairToken],
+        }),
+      ),
     /** Points Pons fees at `to` (routing step 5); the wallet is the demo tokens' recipient. */
     ponsTransfer: (token: Address, to: Address) =>
       send(

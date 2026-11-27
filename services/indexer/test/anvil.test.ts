@@ -23,14 +23,21 @@ import type {
   Totals,
 } from "@feeflow/sdk";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { checkPonsOverrides, indexedBlock, reconcile, type RoutedToken } from "../src/reconcile";
+import { checkPonsOverrides, reconcile, type RoutedToken } from "../src/reconcile";
 
 const chain = localChain(8547);
 let ponder: Awaited<ReturnType<typeof startPonder>>;
 /** Where the Pons owner override sends fees in this story. */
 const OVERRIDE = "0x000000000000000000000000000000000000Ba5e" as const;
-/** The ETH token right after the override executed (before its exit). */
-let redirectedEth: TokenDetail;
+
+/**
+ * Chain block to compare against: the head, once the indexer reports it. Ponder's /status can
+ * briefly report an older block than the events it already serves, so it is not read twice.
+ */
+async function settledBlock(): Promise<bigint> {
+  await waitIndexed(chain, ponder.url, ponder);
+  return chain.client.getBlockNumber();
+}
 
 async function get<T>(p: string): Promise<T> {
   const res = await fetch(`${ponder.url}${p}`);
@@ -47,12 +54,13 @@ beforeAll(async () => {
   const ethSink = await chain.register(ADDR.ethToken);
   await chain.ponsTransfer(ADDR.usdgToken, usdgSink);
   await chain.ponsTransfer(ADDR.ethToken, ethSink);
-  // The Pons owner redirects the ETH token after the 3-day notice.
-  await chain.ponsPropose(ADDR.ethToken, OVERRIDE);
+  // A third token, routed and then redirected by the Pons owner after the 3-day notice.
+  await chain.ponsLaunch(ADDR.extraToken, ADDR.usdg);
+  const extraSink = await chain.register(ADDR.extraToken);
+  await chain.ponsTransfer(ADDR.extraToken, extraSink);
+  await chain.ponsPropose(ADDR.extraToken, OVERRIDE);
   await chain.warp(3 * 86_400);
-  await chain.ponsExecute(ADDR.ethToken);
-  await waitIndexed(chain, ponder.url, ponder);
-  redirectedEth = await get<TokenDetail>(`/api/tokens/${ADDR.ethToken}`);
+  await chain.ponsExecute(ADDR.extraToken);
   await chain.creditUsdg(usdgSink, 150_000_000n); // 150 USDG
   await chain.collect(ADDR.usdgToken); // net 148.50
   await chain.creditEth(ethSink, 10n ** 18n);
@@ -77,7 +85,7 @@ afterAll(() => {
 describe("indexer on Anvil", () => {
   it("serves protocol totals that reconcile with totals(asset) on chain", async () => {
     const t = await get<Totals>("/api/totals");
-    expect(t.tokensRouted).toBe(2);
+    expect(t.tokensRouted).toBe(3);
     expect(t.assets.map((a) => a.asset.symbol)).toEqual(["ETH", "USDG"]);
     const usdg = t.assets[1]!;
     expect(usdg).toMatchObject({
@@ -94,7 +102,7 @@ describe("indexer on Anvil", () => {
       client: chain.client,
       contract: ADDR.feeFlow,
       totals: t,
-      blockNumber: await indexedBlock(ponder.url),
+      blockNumber: await settledBlock(),
     });
     expect(drift).toEqual([]);
   });
@@ -131,8 +139,9 @@ describe("indexer on Anvil", () => {
     });
   });
 
-  it("tracks Pons owner overrides: pending, then redirected, cleared by an exit", async () => {
-    expect(redirectedEth).toMatchObject({
+  it("tracks Pons owner overrides: pending and executed", async () => {
+    const extra = await get<TokenDetail>(`/api/tokens/${ADDR.extraToken}`);
+    expect(extra).toMatchObject({
       status: "redirected",
       redirectedTo: OVERRIDE.toLowerCase(),
       ponsOverride: null,
@@ -144,9 +153,8 @@ describe("indexer on Anvil", () => {
     expect(usdg.ponsOverride!.txHash).toMatch(/^0x[0-9a-f]{64}$/);
     expect(usdg.ponsOverride!.expiresAt - usdg.ponsOverride!.effectiveAt).toBe(3 * 86_400);
 
-    // The exited ETH token is no longer "redirected", and its exit left Pons' recipient alone.
     const eth = await get<TokenDetail>(`/api/tokens/${ADDR.ethToken}`);
-    expect(eth).toMatchObject({ status: "exited", redirectedTo: null });
+    expect(eth).toMatchObject({ status: "exited", ponsOverride: null, redirectedTo: null });
 
     // The reconcile job's independent chain read agrees with the indexer.
     const tokens = await get<RoutedToken[]>("/api/keeper/work");
@@ -154,15 +162,23 @@ describe("indexer on Anvil", () => {
       client: chain.client,
       factory: ADDR.factory,
       tokens,
-      blockNumber: await indexedBlock(ponder.url),
+      blockNumber: await settledBlock(),
       now: Number((await chain.client.getBlock()).timestamp), // chain time runs ahead after warps
     });
-    expect(findings).toEqual([
-      expect.objectContaining({
-        status: "pons-override-pending",
-        token: ADDR.usdgToken.toLowerCase(),
-      }),
-    ]);
+    expect(findings).toHaveLength(2);
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "pons-override-pending",
+          token: ADDR.usdgToken.toLowerCase(),
+        }),
+        expect.objectContaining({
+          status: "pons-redirected",
+          token: ADDR.extraToken.toLowerCase(),
+          to: OVERRIDE.toLowerCase(),
+        }),
+      ]),
+    );
   });
 
   it("shows escrow balances as accrued once a snapshot runs", async () => {
@@ -181,7 +197,7 @@ describe("indexer on Anvil", () => {
     expect(claims[0]!.to).toBe(CLAIM_WALLET.toLowerCase());
 
     const a = await get<AccountView>(`/api/accounts/${X_ID}`);
-    expect(a.tokens.map((t) => t.status).sort()).toEqual(["exited", "routed"]);
+    expect(a.tokens.map((t) => t.status).sort()).toEqual(["exited", "redirected", "routed"]);
     expect(a.activity.map((x) => x.label)).toContain("Claimed · 2 tokens");
     expect(a.received.find((r) => r.asset.symbol === "USDG")).toMatchObject({
       net: "168300000",
@@ -208,18 +224,22 @@ describe("indexer on Anvil", () => {
     type Page = { tokens: TokenSummary[]; hasMore: boolean };
     const usdg = ADDR.usdgToken.toLowerCase();
     const eth = ADDR.ethToken.toLowerCase();
+    const extra = ADDR.extraToken.toLowerCase();
 
     const recent = await get<Page>("/api/tokens");
-    expect(recent.tokens.map((t) => t.address)).toEqual([eth, usdg]); // eth registered last
+    expect(recent.tokens.map((t) => t.address)).toEqual([extra, eth, usdg]); // newest first
     expect(recent.hasMore).toBe(false);
 
     const one = await get<Page>("/api/tokens?limit=1");
-    expect(one).toMatchObject({ hasMore: true, tokens: [{ address: eth }] });
-    const next = await get<Page>("/api/tokens?limit=1&offset=1");
+    expect(one).toMatchObject({ hasMore: true, tokens: [{ address: extra }] });
+    const next = await get<Page>("/api/tokens?limit=1&offset=2");
     expect(next).toMatchObject({ hasMore: false, tokens: [{ address: usdg }] });
 
     const paid = await get<Page>(`/api/tokens?sort=paid&asset=${ADDR.usdg}`);
-    expect(paid.tokens.map((t) => [t.address, t.totalPaid.raw])).toEqual([[usdg, "148500000"]]);
+    expect(paid.tokens.map((t) => [t.address, t.totalPaid.raw])).toEqual([
+      [usdg, "148500000"],
+      [extra, "0"],
+    ]);
 
     const byPrefix = await get<Page>(`/api/tokens?q=${usdg.slice(0, 10)}`);
     expect(byPrefix.tokens.map((t) => t.address)).toEqual([usdg]);
