@@ -106,18 +106,17 @@ export const feeSources = [
   "If the keeper is down, fees are not lost: they wait in the curve, hook, or escrow, and anyone can trigger collection from the token page.",
 ] as const;
 
-export const roadmap = (auditStatus: string) =>
-  [
-    {
-      stage: "Now",
-      body: "Routing, X login and claim, dashboard, leaderboard, public Payments page, keeper, swap link to Uniswap after claim.",
-    },
-    { stage: "Next", body: `Contract audit: ${auditStatus}.` },
-    {
-      stage: "Later",
-      body: "Less trust in the attestation service, for example cryptographic proofs of X account ownership. Not promised.",
-    },
-  ] as const;
+export const roadmap = [
+  {
+    stage: "Now",
+    body: "Routing, X login and claim, dashboard, leaderboard, public Payments page, keeper, swap link to Uniswap after claim.",
+  },
+  { stage: "Next", body: "Contract audit." },
+  {
+    stage: "Later",
+    body: "Less trust in the attestation service, for example cryptographic proofs of X account ownership. Not promised.",
+  },
+] as const;
 
 export const faq = [
   {
@@ -160,7 +159,7 @@ export const faq = [
 ] as const;
 
 /** Short list shown on the landing page. */
-export const disclosuresShort = (auditStatus: string) => [
+export const disclosuresShort = [
   "FeeFlow is software, not a financial service. Nothing here is investment, legal, or tax advice.",
   `Payouts depend on trading activity, on Pons v2 (unaudited as of ${PONS_AUDIT_NOTE_DATE}), and on a keeper. There is no guaranteed amount.`,
   "Balances are attributed to X accounts using a FeeFlow attestation service.",
@@ -168,11 +167,11 @@ export const disclosuresShort = (auditStatus: string) => [
   "Each credited amount is claimable for 30 days; after that, anyone can send it to the registering creator, never to FeeFlow.",
   "FeeFlow keeps a fixed 1% of fees it collects into the contract.",
   "The registering creator and the X account owner can redirect future fees out of FeeFlow.",
-  `Smart contracts can have bugs. FeeFlow audit status: ${auditStatus}.`,
+  "Smart contracts can have bugs.",
 ];
 
 /** Full list for /docs and /disclosures. */
-export const disclosuresFull = (auditStatus: string) => [
+export const disclosuresFull = [
   "FeeFlow is software, not a financial service. Nothing here is investment, legal, or tax advice.",
   "Payouts depend on trading activity, on Pons v2 (unaudited as of 21 November 2026), and on a keeper. Fees can be delayed; there is no guaranteed amount.",
   "Balances are attributed to X accounts using a FeeFlow attestation service; see Trust assumptions.",
@@ -181,7 +180,7 @@ export const disclosuresFull = (auditStatus: string) => [
   "FeeFlow keeps a fixed 1% of fees it collects into the contract. The rate cannot be changed.",
   "The registering creator, as well as the X account owner, can redirect future fees out of FeeFlow; already-credited amounts stay with the X account owner.",
   "The swap link after claiming opens Uniswap, a third-party app. Stock Tokens aren't available in some countries.",
-  `Smart contracts can have bugs. FeeFlow audit status: ${auditStatus}.`,
+  "Smart contracts can have bugs.",
   "FLOW ($FLOW) is FeeFlow's token. You do not need it to use FeeFlow, and holding it entitles you to nothing from FeeFlow's fees.",
 ];
 

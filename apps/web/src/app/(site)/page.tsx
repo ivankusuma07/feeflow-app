@@ -12,7 +12,6 @@ import {
   howItWorks,
   roadmap,
 } from "@/content/copy";
-import { config } from "@/lib/config";
 
 const ROADMAP_TONE = {
   Now: "accent",
@@ -122,7 +121,7 @@ export default function LandingPage() {
           Roadmap
         </h2>
         <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
-          {roadmap(config.auditStatus).map((r) => (
+          {roadmap.map((r) => (
             <Card key={r.stage}>
               <Badge tone={ROADMAP_TONE[r.stage]} size="md">
                 {r.stage}
@@ -152,7 +151,7 @@ export default function LandingPage() {
           Disclosures
         </h2>
         <ul className="mt-4 grid grid-cols-1 gap-x-10 gap-y-2.5 pl-5 text-sm leading-[1.55] text-muted md:grid-cols-2">
-          {disclosuresShort(config.auditStatus).map((d) => (
+          {disclosuresShort.map((d) => (
             <li key={d}>{d}</li>
           ))}
         </ul>
