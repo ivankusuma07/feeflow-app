@@ -1,0 +1,39 @@
+# FeeFlow (/opt/feeflow). Site file for the shared edge Caddy: install as
+# /opt/edge/sites/feeflow.caddy, then reload the edge Caddy. Upstreams are "edge" aliases.
+(feeflow_common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Attestation service + X lookup (CORS and rate limits are handled by the app; TRUSTED_PROXIES=1)
+feeflow-api.185-147-159-149.sslip.io {
+	import feeflow_common
+	@public path /health /x/users /api/attest/*
+	handle @public {
+		reverse_proxy feeflow-api:8787
+	}
+	handle {
+		respond 404
+	}
+}
+
+# Indexer REST API (read-only). Ponder's /sql and /graphql are not exposed.
+feeflow-indexer.185-147-159-149.sslip.io {
+	import feeflow_common
+	@public path /api/* /health /ready /status
+	handle @public {
+		reverse_proxy feeflow-indexer:42069
+	}
+	handle {
+		respond 404
+	}
+}

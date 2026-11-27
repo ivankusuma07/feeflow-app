@@ -1,0 +1,106 @@
+# FeeFlow services on the shared VPS (brief §Hosting). Lives in /opt/feeflow.
+# Public traffic arrives only through the shared edge Caddy (/opt/edge), via the "edge" network
+# aliases feeflow-api and feeflow-indexer. Postgres and the keeper are never exposed.
+#
+#   docker compose up -d --build        start or update
+#   docker compose logs -f <service>    JSON logs (audit lines, keeper actions, reconciliation)
+name: feeflow
+
+x-service: &service
+  image: feeflow-services
+  pull_policy: never
+  restart: unless-stopped
+  init: true
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: feeflow
+      POSTGRES_USER: feeflow
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feeflow -d feeflow"]
+      interval: 10s
+      retries: 10
+
+  indexer:
+    <<: *service
+    build: { context: src, dockerfile: deploy/Dockerfile }
+    working_dir: /app/services/indexer
+    command:
+      ["sh", "-c", 'exec node_modules/.bin/ponder start --schema "$$DATABASE_SCHEMA" --port 42069']
+    env_file: [env/indexer.env]
+    depends_on: { postgres: { condition: service_healthy } }
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:42069/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      start_period: 120s
+    networks:
+      default:
+      edge: { aliases: [feeflow-indexer] }
+
+  api:
+    <<: *service
+    working_dir: /app/services/api
+    command: ["node_modules/.bin/tsx", "src/main.ts"]
+    env_file: [env/api.env]
+    # Enable once the GCP service-account file is on the host (a missing file would be created
+    # as a directory): GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/attester-sa.json in api.env.
+    # volumes: ["/etc/feeflow/attester-sa.json:/run/secrets/attester-sa.json:ro"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+    networks:
+      default:
+      edge: { aliases: [feeflow-api] }
+
+  keeper:
+    <<: *service
+    working_dir: /app/services/keeper
+    command: ["node_modules/.bin/tsx", "src/main.ts"]
+    env_file: [env/keeper.env]
+    depends_on: [indexer]
+
+  # Brief §Indexer: compare indexed totals with totals(asset) on chain every 15 min.
+  # A drift prints {"kind":"reconcile","status":"drift",...} lines and a non-zero exit.
+  reconcile:
+    <<: *service
+    working_dir: /app/services/indexer
+    command:
+      [
+        "sh",
+        "-c",
+        'while true; do node_modules/.bin/tsx scripts/reconcile.ts || echo ''{"kind":"reconcile","status":"alert"}''; sleep 900; done',
+      ]
+    env_file: [env/reconcile.env]
+    depends_on: [indexer]
+
+secrets:
+  postgres_password:
+    file: env/postgres_password
+
+volumes:
+  pgdata:
+
+networks:
+  edge:
+    external: true
