@@ -3,6 +3,7 @@ import { getAddress, type Address } from "viem";
 import { signClaim, signRegister, X_USER } from "./chain";
 
 export const API_URL = "http://api.e2e.test";
+export const STUB_IMAGE_URI = "ipfs://bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy";
 
 const cors = {
   "access-control-allow-origin": "*",
@@ -59,6 +60,11 @@ function api(opts: ApiOptions) {
       }
       const body = req.postDataJSON() as { to: Address };
       return json(route, 200, await signClaim(X_USER.id, getAddress(body.to)));
+    }
+
+    if (url.pathname === "/api/ipfs/image") {
+      // Pinata stands in: a fixed CIDv1, so the launched token's logo() is known.
+      return json(route, 200, { uri: STUB_IMAGE_URI });
     }
 
     return json(route, 404, { error: "not stubbed" });

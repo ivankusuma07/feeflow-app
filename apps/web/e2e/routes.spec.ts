@@ -6,6 +6,7 @@ const ROUTES: { path: string; h1: RegExp }[] = [
   { path: "/explore", h1: /^Explore tokens$/ },
   { path: "/dashboard", h1: /^Dashboard$/ },
   { path: "/claim", h1: /^Claim$/ },
+  { path: "/launch", h1: /^Launch a token on Pons$/ },
   { path: "/route", h1: /^Route a token to an X account$/ },
   { path: "/payments", h1: /^Payments$/ },
   { path: "/leaderboard", h1: /^Leaderboard$/ },

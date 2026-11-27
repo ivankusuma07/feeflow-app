@@ -3,10 +3,12 @@ import { claimTypes, exitTypes, feeFlowDomain, registerTypes } from "@feeflow/sd
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import { bodyLimit } from "hono/body-limit";
+import { HTTPException } from "hono/http-exception";
 import { getAddress, isAddress, zeroAddress, type Address } from "viem";
 import { z } from "zod";
 import type { Attester } from "./attester";
 import type { IdentityVerifier } from "./identity";
+import { MAX_IMAGE_BYTES, PinUnavailableError, sniffImage, type ImagePinner } from "./ipfs";
 import { createRateLimiter, type RateLimiter } from "./rate-limit";
 import { XUnavailableError, type XClient } from "./x-client";
 
@@ -25,11 +27,14 @@ export interface AppDeps {
   remoteAddress: (c: Context) => string | undefined;
   audit: (entry: Record<string, unknown>) => void;
   now?: () => number;
-  limits?: { perIp: RateLimiter; perX: RateLimiter };
+  limits?: { perIp: RateLimiter; perX: RateLimiter; uploads?: RateLimiter };
+  /** Null when PINATA_JWT is unset: image uploads answer 503. */
+  pinner?: ImagePinner | null;
 }
 
 const X_ID = /^[1-9]\d{0,19}$/;
 const MAX_UINT64 = 2n ** 64n - 1n;
+const IMAGE_PATH = "/api/ipfs/image";
 const address = z
   .string()
   .refine((v) => isAddress(v, { strict: false }), "invalid address")
@@ -53,6 +58,7 @@ export function createApp(deps: AppDeps) {
     perIp: createRateLimiter(30, 60_000, now),
     perX: createRateLimiter(10, 60_000, now),
   };
+  const uploads = limits.uploads ?? createRateLimiter(10, 60 * 60_000, now);
   const domain = feeFlowDomain(deps.chainId, deps.contract);
   const expiry = () => BigInt(Math.floor(now() / 1000) + deps.ttlSeconds);
 
@@ -67,7 +73,9 @@ export function createApp(deps: AppDeps) {
       maxAge: 600,
     }),
   );
-  app.use("*", bodyLimit({ maxSize: 4 * 1024 }));
+  const smallBody = bodyLimit({ maxSize: 4 * 1024 });
+  const imageBody = bodyLimit({ maxSize: MAX_IMAGE_BYTES });
+  app.use("*", (c, next) => (c.req.path === IMAGE_PATH ? imageBody : smallBody)(c, next));
 
   /** Behind N proxies, the client IP is the Nth entry from the right of X-Forwarded-For. */
   function clientIp(c: Context): string {
@@ -79,7 +87,7 @@ export function createApp(deps: AppDeps) {
     return deps.remoteAddress(c) ?? "unknown";
   }
 
-  const fail = (c: Context, status: 400 | 401 | 404 | 429 | 503, error: string) =>
+  const fail = (c: Context, status: 400 | 401 | 404 | 413 | 429 | 503, error: string) =>
     c.json({ error }, status);
 
   function limited(c: Context, ...keys: string[]): boolean {
@@ -200,8 +208,36 @@ export function createApp(deps: AppDeps) {
     return c.json({ ...stringify(message), attestation });
   });
 
+  // ------------------------------------------------------------- token image (for /launch)
+  // Raw image bytes in the body. Pinned publicly on IPFS; Pons stores the URI at launch.
+  app.post(IMAGE_PATH, async (c) => {
+    if (!uploads.take(`upload:${clientIp(c)}`)) return fail(c, 429, "rate limited");
+    if (!deps.pinner) return fail(c, 503, "image upload not configured");
+    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    if (bytes.length === 0) return fail(c, 400, "empty image");
+    const type = sniffImage(bytes);
+    if (!type) return fail(c, 400, "use a PNG, JPEG, GIF or WebP image");
+    try {
+      const uri = await deps.pinner.pin(bytes, type);
+      deps.audit({ kind: "image", uri, bytes: bytes.length, type, ip: clientIp(c) });
+      return c.json({ uri });
+    } catch (e) {
+      if (e instanceof PinUnavailableError) {
+        deps.audit({ kind: "image-error", message: e.message });
+        return fail(c, 503, "image upload unavailable");
+      }
+      throw e;
+    }
+  });
+
   app.notFound((c) => fail(c, 404, "not found"));
   app.onError((err, c) => {
+    // Framework errors with their own status (413 from bodyLimit) are not server faults.
+    if (err instanceof HTTPException && err.status < 500)
+      return c.json(
+        { error: err.status === 413 ? "request too large" : "bad request" },
+        err.status,
+      );
     deps.audit({ kind: "error", message: err.message });
     return c.json({ error: "internal error" }, 500);
   });

@@ -110,6 +110,8 @@ export const apiEnvSchema = z.object({
   PRIVY_APP_SECRET: z.string().min(1),
   /** Unset: X lookups and register attestations answer 503 (not configured). */
   X_API_BEARER: optionalString,
+  /** Pinata JWT scoped to `org:files:write`, for Launch page token images. Unset: uploads answer 503. */
+  PINATA_JWT: optionalString,
   /** Local dev only; production signs through the Privy server wallet below. */
   ATTESTER_KEY: hexKey.optional(),
   /** Privy server wallet that holds the attester key (secp256k1, inside Privy). */
