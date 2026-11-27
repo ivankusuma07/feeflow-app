@@ -1,27 +1,14 @@
 "use client";
 
 import { Menu, X } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useState, type ReactNode } from "react";
-import { Button } from "@feeflow/ui";
-import { NavLinks } from "./nav-links";
+import { XIcon } from "../x-icon";
+import { SideNav } from "./side-nav";
+import { TokenSearch } from "./token-search";
 
-interface NavItem {
-  href: string;
-  label: string;
-}
-
-export function MobileMenu({
-  items,
-  xUrl,
-  actions,
-}: {
-  items: readonly NavItem[];
-  xUrl?: string | undefined;
-  /** Replaces the default logged-out buttons (app routes pass the auth-aware actions). */
-  actions?: ReactNode;
-}) {
+/** Below lg: the sidebar becomes a panel opened from the top bar. */
+export function MobileNav({ xUrl, actions }: { xUrl?: string | undefined; actions: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const id = useId();
@@ -54,32 +41,27 @@ export function MobileMenu({
       {open && (
         <div
           id={id}
-          className="absolute inset-x-0 top-full border-b border-line bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+          className="absolute inset-x-0 top-full max-h-[calc(100dvh-64px)] overflow-y-auto border-b border-line bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
         >
-          <nav aria-label="Mobile" className="container-page flex flex-col gap-1 py-4 md:hidden">
-            <NavLinks items={items} className="text-base" onNavigate={() => setOpen(false)} />
+          <div className="px-4 pt-4 sm:px-6 md:hidden">
+            <TokenSearch />
+          </div>
+          <nav aria-label="Mobile" className="px-4 py-4 sm:px-6">
+            <SideNav onNavigate={() => setOpen(false)} />
             {xUrl && (
               <a
                 href={xUrl}
                 target="_blank"
                 rel="noopener"
-                className="px-3 py-2 text-muted no-underline"
+                className="mt-1 flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-[15px] text-muted no-underline"
               >
+                <XIcon size={16} />
                 FeeFlow on X
               </a>
             )}
           </nav>
-          <div className="container-page flex flex-wrap gap-2.5 pb-5 md:pt-4">
-            {actions ?? (
-              <>
-                <Button asChild variant="secondary" className="flex-1">
-                  <Link href="/dashboard">Connect wallet</Link>
-                </Button>
-                <Button asChild className="flex-1">
-                  <Link href="/dashboard">Open app</Link>
-                </Button>
-              </>
-            )}
+          <div className="flex flex-wrap gap-2.5 px-4 pb-5 sm:hidden sm:px-6 [&>*]:flex-1">
+            {actions}
           </div>
         </div>
       )}
