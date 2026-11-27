@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { disclosuresFull, PONS_AUDIT_NOTE_DATE, termsSummary } from "@/content/copy";
 import { APP_CHAIN_ID, explorerAddressUrl } from "@/lib/chain";
-import { config, env, links } from "@/lib/config";
+import { env, links } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Docs",
@@ -204,7 +204,7 @@ export default function DocsPage() {
 
           <Section id="disclosures" title="Disclosures">
             <ul className="mt-4 mb-0 flex flex-col gap-2.5 pl-5 leading-relaxed text-body">
-              {disclosuresFull(config.auditStatus).map((d) => (
+              {disclosuresFull.map((d) => (
                 <li key={d}>{d}</li>
               ))}
             </ul>

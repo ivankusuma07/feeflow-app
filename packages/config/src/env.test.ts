@@ -8,7 +8,6 @@ describe("parsePublicEnv", () => {
     expect(cfg.env.NEXT_PUBLIC_CHAIN_ID).toBe(4663);
     expect(cfg.env.NEXT_PUBLIC_DATA_SOURCE).toBe("indexer");
     expect(cfg.isLive).toBe(false);
-    expect(cfg.auditStatus).toBe("[AUDIT_STATUS]");
   });
 
   it("treats blank values as unset", () => {

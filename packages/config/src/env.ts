@@ -48,7 +48,6 @@ export const publicEnvSchema = z.object({
   NEXT_PUBLIC_TOS_URL: optionalUrl,
   NEXT_PUBLIC_PRIVACY_URL: optionalUrl,
   NEXT_PUBLIC_DOMAIN: optionalString,
-  NEXT_PUBLIC_AUDIT_STATUS: optionalString,
   /** Seconds after the last keeper heartbeat before the stale banner shows. */
   NEXT_PUBLIC_KEEPER_STALE_AFTER: z.coerce.number().int().positive().default(3600),
 });
@@ -59,8 +58,6 @@ export interface PublicConfig {
   env: PublicEnv;
   /** True only when both the contract address and the indexer URL are set. */
   isLive: boolean;
-  /** Display string for the audit status; never invented. */
-  auditStatus: string;
 }
 
 export class ConfigError extends Error {
@@ -90,7 +87,6 @@ export function parsePublicEnv(raw: Record<string, string | undefined>): PublicC
   return {
     env,
     isLive: Boolean(env.NEXT_PUBLIC_CONTRACT_ADDRESS && env.NEXT_PUBLIC_INDEXER_URL),
-    auditStatus: env.NEXT_PUBLIC_AUDIT_STATUS ?? "[AUDIT_STATUS]",
   };
 }
 

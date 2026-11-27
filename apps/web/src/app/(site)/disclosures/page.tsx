@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Card } from "@feeflow/ui";
 import { disclosuresFull } from "@/content/copy";
-import { config } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Disclosures",
@@ -19,7 +18,7 @@ export default function DisclosuresPage() {
       </p>
       <Card className="mt-8">
         <ul className="m-0 flex flex-col gap-3 pl-5 leading-relaxed text-body">
-          {disclosuresFull(config.auditStatus).map((d) => (
+          {disclosuresFull.map((d) => (
             <li key={d}>{d}</li>
           ))}
         </ul>
