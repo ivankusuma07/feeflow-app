@@ -37,5 +37,3 @@ export const links = {
   privacy: env.NEXT_PUBLIC_PRIVACY_URL ?? "/privacy",
   dexSwap: env.NEXT_PUBLIC_DEX_SWAP_URL,
 } as const;
-
-export const contractLabel = env.NEXT_PUBLIC_CONTRACT_ADDRESS ?? "Not deployed yet";
