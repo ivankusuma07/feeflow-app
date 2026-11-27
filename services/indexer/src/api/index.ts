@@ -66,10 +66,11 @@ app.use(
   "/api/*",
   cors({ origin: env.CORS_ORIGIN.split(",").map((s) => s.trim()), allowMethods: ["GET"] }),
 );
-// Data changes once per block; a short shared cache absorbs page refreshes.
+// Never cached: a page reloaded right after the user's own claim or collect must not show the
+// state from before it.
 app.use("/api/*", async (c, next) => {
   await next();
-  if (c.res.status === 200) c.header("cache-control", "public, max-age=10");
+  c.header("cache-control", "no-store");
 });
 
 app.get("/api/totals", async (c) => {

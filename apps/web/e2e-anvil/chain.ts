@@ -82,11 +82,12 @@ export async function ensureDeployed() {
         RPC_URL,
         "--broadcast",
         "--unlocked",
+        "--slow",
         "--sender",
         CREATOR,
       ],
       // Playwright runs from apps/web.
-      { cwd: path.resolve(process.cwd(), "../../contracts"), stdio: "pipe" },
+      { cwd: path.resolve(process.cwd(), "../../contracts"), stdio: "pipe", timeout: 120_000 },
     );
   }
   const sinkImpl = await publicClient.readContract({

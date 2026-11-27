@@ -28,6 +28,8 @@ describe("indexer adapter", () => {
       "https://indexer.example/api/tokens/0xabcd",
       "https://indexer.example/api/keeper/status",
     ]);
+    // Never served from the browser cache: right after a claim the old amounts would show.
+    for (const c of f.mock.calls) expect((c as unknown[])[1]).toMatchObject({ cache: "no-store" });
   });
 
   it("maps 404 to null for accounts and tokens only", async () => {

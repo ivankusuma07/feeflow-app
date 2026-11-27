@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { ADDR, ANVIL_PORT, RPC_URL } from "./e2e-anvil/chain";
-import { API_URL, INDEXER_URL } from "./e2e-anvil/stubs";
+import { INDEXER_PORT, INDEXER_URL } from "./e2e-anvil/indexer";
+import { API_URL } from "./e2e-anvil/stubs";
 
 const PORT = Number(process.env.E2E_ANVIL_APP_PORT ?? 3321);
 const CI = Boolean(process.env.CI);
@@ -8,8 +9,9 @@ const CI = Boolean(process.env.CI);
 /**
  * Write-path e2e against a local Anvil deployment (brief §Testing). A fresh Anvil starts for each
  * run; the spec deploys DeployLocal into it. The app uses the indexer data source and the mock
- * login (NEXT_PUBLIC_MOCK_AUTH, dev only); the indexer and the attestation API are Playwright
- * route stubs answered from live chain state and signed with the local attester key.
+ * login (NEXT_PUBLIC_MOCK_AUTH, dev only) and reads the real indexer (services/indexer, Ponder on
+ * embedded PGlite) running against the same Anvil. The attestation API is a Playwright route stub
+ * signing with the local attester key, because the real one verifies real Privy logins.
  */
 export default defineConfig({
   testDir: "./e2e-anvil",
@@ -31,6 +33,27 @@ export default defineConfig({
       port: ANVIL_PORT,
       timeout: 60_000,
       reuseExistingServer: false,
+    },
+    {
+      // A fresh PGlite database per run, so the index matches the fresh Anvil chain.
+      command: `node -e "require('fs').rmSync('.ponder',{recursive:true,force:true})" && node node_modules/ponder/dist/esm/bin/ponder.js start --schema e2e --port ${INDEXER_PORT}`,
+      cwd: "../../services/indexer",
+      stderr: "pipe",
+      url: `${INDEXER_URL}/health`,
+      timeout: 120_000,
+      reuseExistingServer: false,
+      env: {
+        NODE_ENV: "test",
+        CHAIN_ID: "31337",
+        RPC_URL,
+        DATABASE_URL: "",
+        CONTRACT_ADDRESS: ADDR.feeFlow,
+        CONTRACT_DEPLOY_BLOCK: "0",
+        CONFIRMATIONS: "0",
+        SNAPSHOT_INTERVAL_BLOCKS: "1",
+        CORS_ORIGIN: `http://localhost:${PORT}`,
+        X_API_BEARER: "",
+      },
     },
     {
       command: `pnpm exec next dev -p ${PORT}`,

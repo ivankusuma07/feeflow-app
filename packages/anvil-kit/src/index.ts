@@ -114,10 +114,11 @@ export function localChain(port: number) {
           rpc,
           "--broadcast",
           "--unlocked",
+          "--slow",
           "--sender",
           CREATOR,
         ],
-        { cwd: path.join(REPO, "contracts"), stdio: "pipe" },
+        { cwd: path.join(REPO, "contracts"), stdio: "pipe", timeout: 120_000 },
       );
     },
     stop() {

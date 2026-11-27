@@ -32,7 +32,11 @@ export function createIndexerDataSource(
   async function get<T>(path: string, opts: { nullOn404?: boolean } = {}): Promise<T | null> {
     let res: Response;
     try {
-      res = await fetchImpl(`${root}${path}`, { headers: { accept: "application/json" } });
+      // no-store: right after the user's own transaction, a cached reply would show the old state.
+      res = await fetchImpl(`${root}${path}`, {
+        headers: { accept: "application/json" },
+        cache: "no-store",
+      });
     } catch {
       throw new DataSourceError("The FeeFlow indexer could not be reached.");
     }
