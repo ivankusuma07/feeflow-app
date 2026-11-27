@@ -1,7 +1,7 @@
 import { indexerEnvSchema, knownPairAssets, parseServerEnv } from "@feeflow/config";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { and, count, desc, eq, gte, inArray, sql, sum } from "ponder";
+import { and, count, desc, eq, gte, ilike, inArray, or, sql, sum } from "ponder";
 import { db } from "ponder:api";
 import {
   account,
@@ -25,7 +25,13 @@ import {
 } from "../views";
 import { createKeeperStatus } from "../keeper-status";
 import { createXProfiles, noXProfiles } from "../x-profiles";
-import { parseLeaderboardQuery, parseLimit, X_USER_ID } from "./params";
+import {
+  likeLiteral,
+  parseLeaderboardQuery,
+  parseLimit,
+  parseTokenListQuery,
+  X_USER_ID,
+} from "./params";
 
 const env = parseServerEnv(indexerEnvSchema, process.env, "indexer");
 const profiles = env.X_API_BEARER ? createXProfiles(env.X_API_BEARER) : noXProfiles;
@@ -115,6 +121,52 @@ app.get("/api/claims/recent", async (c) => {
   return c.json(
     claimRecords(l, events, new Map(tokens.map((t) => [t.address, t]))).slice(0, limit),
   );
+});
+
+/**
+ * Every routed token, a page at a time (Explore). `sort=recent` is newest first; `sort=paid`
+ * ranks by the amount claimed and needs `asset`. `q` matches name, symbol or an address prefix.
+ */
+app.get("/api/tokens", async (c) => {
+  const q = parseTokenListQuery({
+    sort: c.req.query("sort"),
+    asset: c.req.query("asset"),
+    q: c.req.query("q"),
+    limit: c.req.query("limit"),
+    offset: c.req.query("offset"),
+  });
+  if (!q) return c.json({ error: "invalid query" }, 400);
+  const filters = [
+    q.asset ? eq(token.asset, q.asset) : undefined,
+    q.q
+      ? or(
+          ilike(token.name, `%${likeLiteral(q.q)}%`),
+          ilike(token.symbol, `%${likeLiteral(q.q)}%`),
+          ilike(token.address, `${likeLiteral(q.q)}%`),
+        )
+      : undefined,
+  ].filter((f) => f !== undefined);
+  const order =
+    q.sort === "paid"
+      ? [desc(token.claimed), desc(token.routedBlock), desc(token.address)]
+      : [desc(token.routedBlock), desc(token.address)];
+  // One extra row tells whether another page exists.
+  const rows = await db
+    .select()
+    .from(token)
+    .where(filters.length ? and(...filters) : undefined)
+    .orderBy(...order)
+    .limit(q.limit + 1)
+    .offset(q.offset);
+  const page = rows.slice(0, q.limit);
+  const [snaps, l] = await Promise.all([
+    snapshotsFor(page.map((t) => t.address)),
+    lookups(page.map((t) => t.xUserId)),
+  ]);
+  return c.json({
+    tokens: page.map((t) => tokenSummary(l, t, snaps.get(t.address))),
+    hasMore: rows.length > q.limit,
+  });
 });
 
 /**

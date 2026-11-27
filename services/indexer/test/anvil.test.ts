@@ -157,6 +157,30 @@ describe("indexer on Anvil", () => {
     expect(eth[0]!.received.raw).toBe("990000000000000000");
   });
 
+  it("lists every token for Explore: newest first, ranked by paid per asset, searchable", async () => {
+    type Page = { tokens: TokenSummary[]; hasMore: boolean };
+    const usdg = ADDR.usdgToken.toLowerCase();
+    const eth = ADDR.ethToken.toLowerCase();
+
+    const recent = await get<Page>("/api/tokens");
+    expect(recent.tokens.map((t) => t.address)).toEqual([eth, usdg]); // eth registered last
+    expect(recent.hasMore).toBe(false);
+
+    const one = await get<Page>("/api/tokens?limit=1");
+    expect(one).toMatchObject({ hasMore: true, tokens: [{ address: eth }] });
+    const next = await get<Page>("/api/tokens?limit=1&offset=1");
+    expect(next).toMatchObject({ hasMore: false, tokens: [{ address: usdg }] });
+
+    const paid = await get<Page>(`/api/tokens?sort=paid&asset=${ADDR.usdg}`);
+    expect(paid.tokens.map((t) => [t.address, t.totalPaid.raw])).toEqual([[usdg, "148500000"]]);
+
+    const byPrefix = await get<Page>(`/api/tokens?q=${usdg.slice(0, 10)}`);
+    expect(byPrefix.tokens.map((t) => t.address)).toEqual([usdg]);
+    expect((await get<Page>("/api/tokens?q=%25")).tokens).toEqual([]); // "%" is literal
+
+    expect((await fetch(`${ponder.url}/api/tokens?sort=paid`)).status).toBe(400);
+  });
+
   it("answers 404 for unknown ids and 400 for malformed input", async () => {
     expect((await fetch(`${ponder.url}/api/accounts/42`)).status).toBe(404);
     expect((await fetch(`${ponder.url}/api/tokens/0x${"1".repeat(40)}`)).status).toBe(404);

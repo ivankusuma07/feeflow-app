@@ -326,6 +326,25 @@ export function createMockDataSource(): DataSource {
         .sort((a, b) => Number(BigInt(b.totalPaid.raw) - BigInt(a.totalPaid.raw)))
         .slice(0, limit);
     },
+    async getTokens({ sort, asset, q, limit, offset }) {
+      const text = q?.trim().toLowerCase();
+      // Mock tokens share one routedAt; list order stands in for "newest first".
+      let list = [...TOKENS].reverse().map(summary);
+      if (asset)
+        list = list.filter((t) => t.pairAsset.address.toLowerCase() === asset.toLowerCase());
+      if (text) {
+        list = list.filter(
+          (t) =>
+            t.name.toLowerCase().includes(text) ||
+            t.symbol.toLowerCase().includes(text) ||
+            t.address.toLowerCase().startsWith(text),
+        );
+      }
+      if (sort === "paid") {
+        list.sort((a, b) => Number(BigInt(b.totalPaid.raw) - BigInt(a.totalPaid.raw)));
+      }
+      return { tokens: list.slice(offset, offset + limit), hasMore: list.length > offset + limit };
+    },
     async getLeaderboard(period, assetAddress, limit) {
       const asset = [NATIVE_ETH, USDG, GME].find(
         (a) => a.address.toLowerCase() === assetAddress.toLowerCase(),

@@ -1,11 +1,11 @@
 "use client";
 
 import type { LeaderboardPeriod } from "@feeflow/sdk";
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { createContext, useContext, type ReactNode } from "react";
 import { env } from "@/lib/config";
 import { createIndexerDataSource } from "./indexer";
-import type { DataSource } from "./types";
+import type { DataSource, TokenListOptions, TokenPage } from "./types";
 
 /**
  * Resolves the configured data source once.
@@ -74,3 +74,29 @@ export const useAccountView = (xUserId: string | null) =>
 export const useTokenDetail = (address: string) =>
   useSourceQuery(["token", address.toLowerCase()], (ds) => ds.getToken(address));
 export const useKeeperStatus = () => useSourceQuery(["keeper"], (ds) => ds.getKeeperStatus());
+
+/**
+ * Explore's token list, one page per "Load more". Pages are `null` when no data source is
+ * configured (the "not live yet" state), never sample data.
+ */
+export function useTokenList(opts: Omit<TokenListOptions, "offset">) {
+  const source = useContext(SourceContext);
+  if (!source) throw new Error("Data hooks must be used inside <DataSourceProvider>");
+  return useInfiniteQuery({
+    queryKey: [
+      "ds",
+      "tokens",
+      opts.sort,
+      opts.asset?.toLowerCase() ?? "",
+      opts.q ?? "",
+      opts.limit,
+    ],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }): Promise<TokenPage | null> => {
+      const ds = await source;
+      return ds ? ds.getTokens({ ...opts, offset: pageParam }) : null;
+    },
+    getNextPageParam: (last, pages) =>
+      last?.hasMore ? pages.reduce((n, p) => n + (p?.tokens.length ?? 0), 0) : undefined,
+  });
+}

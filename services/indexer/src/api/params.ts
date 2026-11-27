@@ -34,3 +34,48 @@ export function parseLeaderboardQuery(
     limit,
   };
 }
+
+export type TokenSort = "paid" | "recent";
+export const PAGE_MAX = 60;
+
+export interface TokenListQuery {
+  sort: TokenSort;
+  /** Lowercased pair asset, or null for every asset. */
+  asset: `0x${string}` | null;
+  /** Lowercased search text: a name or symbol fragment, or an address prefix. */
+  q: string | null;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * `/api/tokens` query. "paid" ranks by the amount claimed, so it needs one asset: amounts in
+ * different assets are never compared. Null if malformed.
+ */
+export function parseTokenListQuery(raw: {
+  sort?: string | undefined;
+  asset?: string | undefined;
+  q?: string | undefined;
+  limit?: string | undefined;
+  offset?: string | undefined;
+}): TokenListQuery | null {
+  const sort = (raw.sort ?? "recent") as TokenSort;
+  if (sort !== "paid" && sort !== "recent") return null;
+  let asset: `0x${string}` | null = null;
+  if (raw.asset !== undefined && raw.asset !== "") {
+    if (!isAddress(raw.asset, { strict: false })) return null;
+    asset = raw.asset.toLowerCase() as `0x${string}`;
+  }
+  if (sort === "paid" && !asset) return null;
+  const limit = parseLimit(raw.limit, 30);
+  if (limit === null || limit > PAGE_MAX) return null;
+  const offsetRaw = raw.offset ?? "0";
+  if (!/^\d{1,6}$/.test(offsetRaw)) return null;
+  const q = (raw.q ?? "").trim().toLowerCase().slice(0, 64);
+  return { sort, asset, q: q === "" ? null : q, limit, offset: Number(offsetRaw) };
+}
+
+/** Escapes LIKE wildcards so user text matches literally. */
+export function likeLiteral(s: string): string {
+  return s.replace(/[\\%_]/g, (c) => "\\" + c);
+}

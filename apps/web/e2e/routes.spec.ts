@@ -3,6 +3,7 @@ import { expect, expectAccessible, firstTokenHref, test } from "./fixtures";
 /** Every route in the brief's page list, with the h1 a reader should land on. */
 const ROUTES: { path: string; h1: RegExp }[] = [
   { path: "/", h1: /./ },
+  { path: "/explore", h1: /^Explore tokens$/ },
   { path: "/dashboard", h1: /^Dashboard$/ },
   { path: "/claim", h1: /^Claim$/ },
   { path: "/route", h1: /^Route a token to an X account$/ },

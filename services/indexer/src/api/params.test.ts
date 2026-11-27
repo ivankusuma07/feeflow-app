@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseLeaderboardQuery, parseLimit } from "./params";
+import { likeLiteral, parseLeaderboardQuery, parseLimit, parseTokenListQuery } from "./params";
 
 const USDG = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
 
@@ -28,5 +28,39 @@ describe("parseLeaderboardQuery", () => {
     expect(parseLeaderboardQuery({ period: "1y", asset: USDG }, now)).toBeNull();
     expect(parseLeaderboardQuery({ period: "7d" }, now)).toBeNull();
     expect(parseLeaderboardQuery({ period: "7d", asset: "0x123" }, now)).toBeNull();
+  });
+});
+
+describe("parseTokenListQuery", () => {
+  it("defaults to the newest tokens, 30 per page", () => {
+    expect(parseTokenListQuery({})).toEqual({
+      sort: "recent",
+      asset: null,
+      q: null,
+      limit: 30,
+      offset: 0,
+    });
+  });
+
+  it("ranks by amount paid only within one asset", () => {
+    expect(parseTokenListQuery({ sort: "paid" })).toBeNull();
+    expect(parseTokenListQuery({ sort: "paid", asset: USDG })).toMatchObject({
+      sort: "paid",
+      asset: USDG.toLowerCase(),
+    });
+  });
+
+  it("rejects bad input and normalises search text", () => {
+    expect(parseTokenListQuery({ sort: "mc" })).toBeNull();
+    expect(parseTokenListQuery({ asset: "0x12" })).toBeNull();
+    expect(parseTokenListQuery({ limit: "61" })).toBeNull();
+    expect(parseTokenListQuery({ offset: "-1" })).toBeNull();
+    expect(parseTokenListQuery({ q: "  FLOW " })?.q).toBe("flow");
+    expect(parseTokenListQuery({ q: "   " })?.q).toBeNull();
+  });
+
+  it("escapes LIKE wildcards", () => {
+    // Input 50%_a\b; output 50\%\_a\\b.
+    expect(likeLiteral(String.raw`50%_a\b`)).toBe(String.raw`50\%\_a\\b`);
   });
 });

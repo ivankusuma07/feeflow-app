@@ -14,11 +14,30 @@ import type {
  * Ponder indexer, production) and `mock` (synthetic data, development only).
  * `null` means "not found"; failures throw and surface as `ErrorState`.
  */
+export type TokenSort = "recent" | "paid";
+
+export interface TokenListOptions {
+  /** "paid" ranks by the amount claimed and needs `asset`. */
+  sort: TokenSort;
+  asset?: string | undefined;
+  /** Name or symbol fragment, or an address prefix. */
+  q?: string | undefined;
+  limit: number;
+  offset: number;
+}
+
+export interface TokenPage {
+  tokens: TokenSummary[];
+  hasMore: boolean;
+}
+
 export interface DataSource {
   readonly kind: "indexer" | "mock";
   getTotals(): Promise<Totals>;
   getRecentClaims(limit: number): Promise<ClaimRecord[]>;
   getTopTokens(limit: number): Promise<TokenSummary[]>;
+  /** Every routed token, a page at a time (Explore). */
+  getTokens(opts: TokenListOptions): Promise<TokenPage>;
   /** Ranked by net received in one pair asset (amounts in different assets are never summed). */
   getLeaderboard(
     period: LeaderboardPeriod,
