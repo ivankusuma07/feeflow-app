@@ -32,8 +32,11 @@ test.beforeAll(async () => {
 
 async function connectWallet(page: Page) {
   const connect = page.getByRole("button", { name: "Connect wallet" }).first();
-  await connect.click();
-  await expect(connect).toBeHidden();
+  // On a cold dev server the button can render before React hydrates and a first click is lost.
+  await expect(async () => {
+    await connect.click({ timeout: 2_000 });
+    await expect(connect).toBeHidden({ timeout: 3_000 });
+  }).toPass({ timeout: 30_000 });
 }
 
 test("route: sign, register and point Pons fees at the sink", async ({ page }) => {
