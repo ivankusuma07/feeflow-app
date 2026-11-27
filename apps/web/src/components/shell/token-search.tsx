@@ -42,7 +42,7 @@ export function TokenSearch({ className }: { className?: string }) {
           setInvalid(false);
         }}
         placeholder="Search by token address"
-        aria-label="Search by token address"
+        aria-label="Search tokens"
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? hintId : undefined}
         spellCheck={false}
