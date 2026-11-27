@@ -1,6 +1,7 @@
 import { CLAIM_WINDOW_SECONDS, sameAsset, type PairAsset } from "@feeflow/config";
 import {
   amount,
+  ipfsImageUrl,
   sumByAsset,
   type AccountActivity,
   type AccountToken,
@@ -82,8 +83,8 @@ export function tokenSummary(
     name: t.name,
     symbol: t.symbol,
     pairAsset: a,
-    // Brief: token images only from Pons metadata; no verified source yet → monogram.
-    imageUrl: null,
+    // Brief: token images only from Pons metadata — the token's `logo()`, via an IPFS gateway.
+    imageUrl: ipfsImageUrl(t.logo),
     graduated: snapshot?.graduated ?? false,
     recipient: xAccount(l, t.xUserId),
     status: t.exited ? "exited" : "routed",

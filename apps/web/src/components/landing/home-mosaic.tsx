@@ -4,7 +4,6 @@ import { isNative, knownPairAssets } from "@feeflow/config";
 import {
   formatAmount,
   formatRelative,
-  initials,
   type Amount as AmountValue,
   type ClaimRecord,
   type LeaderboardEntry,
@@ -15,6 +14,7 @@ import { ArrowLeftRight, ArrowRight, Check, Coins } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Amount } from "@/components/app/amount";
+import { TokenLogo } from "@/components/app/token-logo";
 import { Avatar } from "@/components/app/avatar";
 import { createDataSource } from "@/data/context";
 import { joinAmounts } from "@/lib/assets";
@@ -190,8 +190,8 @@ function ExploreMotion({ tokens }: { tokens: TokenSummary[] }) {
 function TokenTile({ t }: { t: TokenSummary }) {
   return (
     <div className="rounded-[12px] border border-line bg-surface p-1.5">
-      <div className="relative flex aspect-square items-center justify-center rounded-[8px] bg-subtle font-mono text-xl">
-        {initials(t.name)}
+      <div className="relative">
+        <TokenLogo token={t} className="rounded-[8px] text-xl" />
         <span className="absolute top-1 right-1 rounded-full bg-surface/90 px-1.5 font-mono text-[9px] text-muted">
           {formatRelative(t.routedAt)}
         </span>

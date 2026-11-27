@@ -34,6 +34,8 @@ export const token = onchainTable(
     asset: t.hex().notNull(),
     name: t.text().notNull(),
     symbol: t.text().notNull(),
+    /** Pons `logo()` (an `ipfs://` reference), or null if absent or not a clean IPFS link. */
+    logo: t.text(),
     /** Pons bonding curve; null if the factory read failed. */
     curve: t.hex(),
     routedAt: t.integer().notNull(),
