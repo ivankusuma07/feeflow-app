@@ -134,15 +134,29 @@ export const keeperEnvSchema = z.object({
   RPC_URL: requiredUrl,
   RPC_URL_FALLBACK: optionalUrl,
   CONTRACT_ADDRESS: requiredAddress,
+  /** Hot wallet: holds gas only. Host secret store, never git. */
   KEEPER_KEY: hexKey,
-  DATABASE_URL: requiredUrl,
-  COLLECT_THRESHOLD_USDG: z.coerce.bigint(),
-  COLLECT_THRESHOLD_ETH: z.coerce.bigint(),
-  SWEEP_THRESHOLD_USDG: z.coerce.bigint(),
-  SWEEP_THRESHOLD_ETH: z.coerce.bigint(),
+  /** The indexer REST API: the keeper reads its work list there and re-checks every item on chain. */
+  INDEXER_URL: requiredUrl,
+  COLLECT_THRESHOLD_USDG: z.coerce.bigint().nonnegative(),
+  COLLECT_THRESHOLD_ETH: z.coerce.bigint().nonnegative(),
+  /** Other ERC-20 pairs (18 decimals as a rule). Unset: those tokens are not collected by the keeper. */
+  COLLECT_THRESHOLD_OTHER: optionalString
+    .refine((v) => v === undefined || /^\d+$/.test(v), { message: "must be base units" })
+    .transform((v) => (v === undefined ? undefined : BigInt(v))),
+  /**
+   * Reserved: there is no verified getter for unswept fees (PONS_UNSWEPT_GETTER), so sweeps are
+   * gated by simulating the operator call, which reverts below Pons's own floor.
+   */
+  SWEEP_THRESHOLD_USDG: optionalString,
+  SWEEP_THRESHOLD_ETH: optionalString,
   LOOP_INTERVAL_SECONDS: z.coerce.number().int().positive().default(300),
-  GAS_BUDGET_WEI_PER_RUN: z.coerce.bigint(),
+  GAS_BUDGET_WEI_PER_RUN: z.coerce.bigint().positive(),
   MAX_RELEASE_BATCHES: z.coerce.number().int().positive().default(50),
+  /** Alert (log line kind=alert) when the keeper's ETH balance drops below this. */
+  KEEPER_MIN_BALANCE_WEI: z.coerce.bigint().nonnegative().default(5_000_000_000_000_000n),
+  /** Days between withdrawFees calls per asset. */
+  WITHDRAW_FEES_EVERY_DAYS: z.coerce.number().positive().default(7),
   HEALTH_PORT: z.coerce.number().int().default(8788),
 });
 export type KeeperEnv = z.infer<typeof keeperEnvSchema>;
@@ -165,6 +179,10 @@ export const indexerEnvSchema = z.object({
   CORS_ORIGIN: z.string().min(1),
   /** Unset: accounts are served by numeric id only (no handle or avatar). */
   X_API_BEARER: optionalString,
+  /** The keeper's /health (same host). Unset: /api/keeper/status reports no runs. */
+  KEEPER_HEALTH_URL: optionalUrl,
+  /** Seconds after the last keeper run before the app shows "delayed". */
+  KEEPER_STALE_AFTER: z.coerce.number().int().positive().default(3600),
 });
 export type IndexerEnv = z.infer<typeof indexerEnvSchema>;
 

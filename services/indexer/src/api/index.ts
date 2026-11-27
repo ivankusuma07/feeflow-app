@@ -23,6 +23,7 @@ import {
   totals,
   type Lookups,
 } from "../views";
+import { createKeeperStatus } from "../keeper-status";
 import { createXProfiles, noXProfiles } from "../x-profiles";
 import { parseLeaderboardQuery, parseLimit, X_USER_ID } from "./params";
 
@@ -30,6 +31,10 @@ const env = parseServerEnv(indexerEnvSchema, process.env, "indexer");
 const profiles = env.X_API_BEARER ? createXProfiles(env.X_API_BEARER) : noXProfiles;
 const knownFirst = knownPairAssets(env.CHAIN_ID).map((a) => a.address);
 const nowSeconds = () => Math.floor(Date.now() / 1000);
+const keeperStatus = createKeeperStatus({
+  healthUrl: env.KEEPER_HEALTH_URL,
+  staleAfterSeconds: env.KEEPER_STALE_AFTER,
+});
 
 /** Assets, account flags and X display data for the X ids in one response. */
 async function lookups(xUserIds: string[]): Promise<Lookups> {
@@ -218,7 +223,36 @@ app.get("/api/tokens/:address", async (c) => {
   return c.json(tokenDetail(l, t, snaps.get(address), batches, events, nowSeconds()));
 });
 
-/** The keeper (services/keeper) writes its heartbeat once it exists; until then, no runs. */
-app.get("/api/keeper/status", (c) => c.json({ lastRunAt: null, stale: false }));
+app.get("/api/keeper/status", async (c) => c.json(await keeperStatus()));
+
+/**
+ * Work list for services/keeper: every routed token with what the keeper needs to decide.
+ * Public data only; the keeper re-reads balances and expirable amounts on chain before acting.
+ */
+app.get("/api/keeper/work", async (c) => {
+  const [tokens, oldest, snaps] = await Promise.all([
+    db.select().from(token),
+    db
+      .select({ token: batch.token, creditedAt: sql<number>`min(${batch.creditedAt})` })
+      .from(batch)
+      .where(eq(batch.open, true))
+      .groupBy(batch.token),
+    db.select().from(escrowSnapshot),
+  ]);
+  const oldestBy = new Map(oldest.map((o) => [o.token, Number(o.creditedAt)]));
+  const snapBy = new Map(snaps.map((s) => [s.token, s]));
+  return c.json(
+    tokens.map((t) => ({
+      token: t.address,
+      sink: t.sink,
+      asset: t.asset,
+      curve: t.curve,
+      exited: t.exited,
+      graduated: snapBy.get(t.address)?.graduated ?? false,
+      credited: t.credited.toString(),
+      oldestCreditedAt: oldestBy.get(t.address) ?? null,
+    })),
+  );
+});
 
 export default app;

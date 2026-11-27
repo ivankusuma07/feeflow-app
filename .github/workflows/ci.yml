@@ -42,7 +42,7 @@ jobs:
       - run: pnpm --filter @feeflow/web lighthouse
 
   e2e:
-    name: E2E (Playwright + axe; write paths and indexer on Anvil)
+    name: E2E (Playwright + axe; write paths, indexer and keeper on Anvil)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +62,7 @@ jobs:
       - run: pnpm --filter @feeflow/web e2e
       - run: pnpm --filter @feeflow/web e2e:anvil
       - run: pnpm --filter @feeflow/indexer test:anvil
+      - run: pnpm --filter @feeflow/keeper test:anvil
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
