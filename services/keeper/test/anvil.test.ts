@@ -86,12 +86,15 @@ describe("keeper on Anvil", () => {
   it("releases batches past the 30-day window to the creator", async () => {
     await chain.warp(31 * 86_400);
     await waitIndexed(chain, ponder.url, ponder);
-    await waitFor(async () => (await credited(ADDR.usdgToken)) === 0n, {
-      what: "releaseExpired",
-      proc: keeper,
-      timeoutMs: 90_000,
-    });
-    expect(await credited(ADDR.ethToken)).toBe(0n);
+    // One release per token, in separate keeper transactions: wait for both.
+    await waitFor(
+      async () => (await credited(ADDR.usdgToken)) === 0n && (await credited(ADDR.ethToken)) === 0n,
+      {
+        what: "releaseExpired",
+        proc: keeper,
+        timeoutMs: 90_000,
+      },
+    );
     expect(keeper.output()).toMatch(/"action":"release"/);
   }, 120_000);
 

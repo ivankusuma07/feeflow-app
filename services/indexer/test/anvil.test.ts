@@ -10,6 +10,7 @@ import {
   CREATOR,
   localChain,
   startPonder,
+  waitFor,
   waitIndexed,
   X_ID,
 } from "@feeflow/anvil-kit";
@@ -75,6 +76,12 @@ beforeAll(async () => {
   await chain.exitByCreator(ADDR.ethToken, CREATOR);
   await chain.test.mine({ blocks: 2 });
   await waitIndexed(chain, ponder.url, ponder);
+  // /status can reach the head before that block's rows are readable. Blocks are applied in
+  // order, so once the story's last event (the exit) is served, every earlier one is too.
+  await waitFor(
+    async () => (await get<TokenDetail>(`/api/tokens/${ADDR.ethToken}`)).status === "exited",
+    { what: "the exit to be served", proc: ponder },
+  );
 }, 180_000);
 
 afterAll(() => {
